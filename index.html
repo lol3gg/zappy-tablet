@@ -8,66 +8,96 @@
 <title>Zappy Vendita Banco</title>
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
-    import { getFirestore, doc, getDoc, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
-const db = getFirestore(app);
-const localeCorrente = "zappydemo";
+    import { getFirestore, collection, getDocs, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
 
-// Contenitori
-const categorieContainer = document.querySelector(".categorie");
-const sezioniProdottiContainer = document.querySelector(".sezioni-prodotti");
+    const firebaseConfig = {
+      apiKey: "AIzaSyC-yyxd1dxn16hx9AUZDKgFpPLWl-YfWnHE",
+      authDomain: "zappy-24d29.firebaseapp.com",
+      projectId: "zappy-24d29",
+      storageBucket: "zappy-24d29.appspot.com",
+      messagingSenderId: "356775808247",
+      appId: "1:356775808247:web:a5395430ad3dc9aa7c17f2"
+    };
 
-// Caricamento categorie in ordine da Firestore
-async function caricaCategorie() {
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    async function loadProdotti(categoria) {
+      const prodottiRef = collection(db, "locali", "zappydemo", "menu", categoria, "prodotti");
+      const snapshot = await getDocs(prodottiRef);
+      const container = document.getElementById("prodotti");
+      container.innerHTML = "";
+      snapshot.forEach(doc => {
+        const data = doc.data();
+        const div = document.createElement("div");
+        div.className = "card";
+        div.innerHTML = `
+          <img src="${data.immagineUrl}" alt="${data.nome}" />
+          <h4>${data.nome}</h4>
+          <p>€${data.prezzo.toFixed(2)}</p>
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    window.loadProdotti = loadProdotti;
+  
+    window.addEventListener("DOMContentLoaded", async () => {
+    const localeCorrente = "zappydemo"; // intercambiabile per ogni cliente
+
     const categorieDocRef = doc(db, "locali", localeCorrente, "menu", "categorie");
-    const docSnap = await getDoc(categorieDocRef);
+    const categorieDocSnap = await getDoc(categorieDocRef);
 
-    if (docSnap.exists()) {
-        const data = docSnap.data();
+    if (categorieDocSnap.exists()) {
+        const data = categorieDocSnap.data();
+        let categorie = [];
 
-        // Legge le macrocategorie in ordine (Cibo, Bevande)
-        for (const macroCategoria of Object.keys(data)) {
-            const categorie = data[macroCategoria]; // array ordinato
-
-            for (const categoria of categorie) {
-                // Crea bottone
-                const btn = document.createElement("button");
-                btn.textContent = categoria;
-                btn.onclick = () => {
-                    document.getElementById(categoria).scrollIntoView({ behavior: 'smooth' });
-                };
-                categorieContainer.appendChild(btn);
-
-                // Crea sezione prodotti
-                const sezioneDiv = document.createElement("div");
-                sezioneDiv.className = "sezione";
-                sezioneDiv.id = categoria;
-                sezioneDiv.innerHTML = `<h2>${categoria}</h2><div class="prodotti" data-categoria="${categoria}"></div>`;
-                sezioniProdottiContainer.appendChild(sezioneDiv);
-
-                // Carica prodotti di quella categoria
-                const prodottiRef = collection(db, "locali", localeCorrente, "menu", categoria, "prodotti");
-                const snapshot = await getDocs(prodottiRef);
-                const container = sezioneDiv.querySelector(".prodotti");
-
-                snapshot.forEach((doc) => {
-                    const prodotto = doc.data();
-                    const div = document.createElement("div");
-                    div.className = "card";
-                    div.innerHTML = `
-                        <img src="${prodotto.immagineUrl}" alt="${prodotto.nome}">
-                        <h4>${prodotto.nome}</h4>
-                        <p>€${prodotto.prezzo.toFixed(2)}</p>
-                    `;
-                    container.appendChild(div);
-                });
+        for (const key in data) {
+            if (Array.isArray(data[key])) {
+                categorie = categorie.concat(data[key]);
             }
         }
-    } else {
-        console.error("Documento categorie non trovato.");
-    }
-}
 
-caricaCategorie();
+        const categorieContainer = document.querySelector(".categorie");
+        const sezioniProdottiContainer = document.querySelector(".sezioni-prodotti");
+
+        categorie.forEach(async (categoria) => {
+            // Crea pulsante dinamico
+            const btn = document.createElement("button");
+            btn.textContent = categoria;
+            btn.onclick = () => {
+                document.getElementById(categoria).scrollIntoView({ behavior: 'smooth' });
+            };
+            categorieContainer.appendChild(btn);
+
+            // Crea sezione dinamica
+            const sezioneDiv = document.createElement("div");
+            sezioneDiv.className = "sezione";
+            sezioneDiv.id = categoria;
+            sezioneDiv.innerHTML = `<h2>${categoria}</h2><div class="prodotti" data-categoria="${categoria}"></div>`;
+            sezioniProdottiContainer.appendChild(sezioneDiv);
+
+            // Carica prodotti per categoria
+            const prodottiRef = collection(db, "locali", localeCorrente, "menu", categoria, "prodotti");
+            const snapshot = await getDocs(prodottiRef);
+            const container = sezioneDiv.querySelector(".prodotti");
+
+            snapshot.forEach(doc => {
+                const data = doc.data();
+                const div = document.createElement("div");
+                div.className = "card";
+                div.innerHTML = `
+                    <img src="${data.immagineUrl}" alt="${data.nome}" />
+                    <h4>${data.nome}</h4>
+                    <p>€${data.prezzo.toFixed(2)}</p>
+                `;
+                container.appendChild(div);
+            });
+        });
+    } else {
+        console.error("Documento categorie non trovato in Firebase.");
+    }
+});
 
 function toggleModalita(mode) {
   document.querySelectorAll('.modalita-section').forEach(s => s.style.display = 'none');
