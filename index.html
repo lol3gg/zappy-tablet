@@ -8,7 +8,7 @@
 <title>Zappy Vendita Banco</title>
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
-    import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
+    import { getFirestore, collection, getDocs, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyC-yyxd1dxn16hx9AUZDKgFpPLWl-YfWnHE",
@@ -1218,6 +1218,7 @@ html, body {
 </div>
 <div class="content">
   <div class="categorie"></div>
+  <div id="prodotti"></div>
   <div class="sezioni-prodotti"></div>
   
 </div>
