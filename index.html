@@ -1899,7 +1899,7 @@ aggiornaConteggio();
 
 
 <script>
-let tavoloSelezionato = null;
+tavoloSelezionato = tavolo.querySelector('h3').textContent.trim();
 
 document.querySelectorAll('.tavolo').forEach(tavolo => {
     tavolo.addEventListener('click', () => {
