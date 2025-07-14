@@ -21,26 +21,6 @@
 
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
-
-    async function loadProdotti(categoria) {
-      const prodottiRef = collection(db, "locali", "zappydemo", "menu", categoria, "prodotti");
-      const snapshot = await getDocs(prodottiRef);
-      const container = document.getElementById("prodotti");
-      container.innerHTML = "";
-      snapshot.forEach(doc => {
-        const data = doc.data();
-        const div = document.createElement("div");
-        div.className = "card";
-        div.innerHTML = `
-          <img src="${data.immagineUrl}" alt="${data.nome}" />
-          <h4>${data.nome}</h4>
-          <p>€${data.prezzo.toFixed(2)}</p>
-        `;
-        container.appendChild(div);
-      });
-    }
-
-    window.loadProdotti = loadProdotti;
   
     window.addEventListener("DOMContentLoaded", async () => {
     const localeCorrente = "zappydemo"; // intercambiabile per ogni cliente
@@ -64,7 +44,7 @@
         categorie.forEach(async (categoria) => {
             // Crea pulsante dinamico
             const btn = document.createElement("button");
-            btn.textContent = categoria;
+            btn.textContent = (categoria.it || categoria.en || categoria.originale || categoria);
             btn.onclick = () => {
                 document.getElementById(categoria).scrollIntoView({ behavior: 'smooth' });
             };
@@ -74,7 +54,7 @@
             const sezioneDiv = document.createElement("div");
             sezioneDiv.className = "sezione";
             sezioneDiv.id = categoria;
-            sezioneDiv.innerHTML = `<h2>${categoria}</h2><div class="prodotti" data-categoria="${categoria}"></div>`;
+            sezioneDiv.innerHTML = `<h2>${categoria.it || categoria.en || categoria.originale || categoria}</h2><div class="prodotti" data-categoria="${categoria}"></div>`;
             sezioniProdottiContainer.appendChild(sezioneDiv);
 
             // Carica prodotti per categoria
@@ -85,13 +65,13 @@
             snapshot.forEach(doc => {
                 const data = doc.data();
                 const div = document.createElement("div");
-                div.className = "card";
-                div.innerHTML = `
-                    <img src="${data.immagineUrl}" alt="${data.nome}" />
-                    <h4>${data.nome}</h4>
-                    <p>€${data.prezzo.toFixed(2)}</p>
-                `;
-                container.appendChild(div);
+div.className = "card";
+div.innerHTML = `
+    <img src="${data.immagineUrl}" alt="${data.nome.it}" />
+    <h4>${data.nome.it}</h4>
+    <p>€${data.prezzo.toFixed(2)}</p>
+`;
+container.appendChild(div);
             });
         });
     } else {
@@ -1513,11 +1493,6 @@ function aggiornaOrdine() {
 }
 
 </script><script>
-document.addEventListener("DOMContentLoaded", () => {
-  if (typeof loadProdotti === "function") {
-    loadProdotti('Drink');
-  }
-});
 </script>
 <div class="popup-pagamento" id="popup-pagamento">
 <div class="popup-content">
