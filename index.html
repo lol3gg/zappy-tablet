@@ -22,32 +22,9 @@
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
   
-    async function caricaSale() {
-  const saleContainer = document.querySelector(".sezioni-tavoli");
-  saleContainer.innerHTML = '';
-
-  const tuttiBtn = document.createElement('button');
-  tuttiBtn.className = 'btn-sezione-tavoli';
-  tuttiBtn.textContent = 'TUTTI';
-  saleContainer.appendChild(tuttiBtn);
-
-  const saleRef = collection(db, "locali", "zappydemo", "sale");
-  const saleSnap = await getDocs(saleRef);
-
-  saleSnap.forEach(docSnap => {
-    const btn = document.createElement('button');
-    btn.className = 'btn-sezione-tavoli';
-    btn.textContent = docSnap.id;
-    saleContainer.appendChild(btn);
-  });
-}
-
-  
-
     window.addEventListener("DOMContentLoaded", async () => {
     const localeCorrente = "zappydemo"; // intercambiabile per ogni cliente
-    await caricaSale();
-    
+
     const categorieDocRef = doc(db, "locali", localeCorrente, "menu", "categorie");
     const categorieDocSnap = await getDoc(categorieDocRef);
 
@@ -1727,8 +1704,11 @@ aggiornaOrdine = function() {
   <h2 style="color:#007BFF; text-align:center;">Gestione Tavoli</h2>
   
 <div id="conteggioTavoli" style="text-align:center; font-weight:600; margin-bottom:10px;">Tavoli visibili: 0/0</div>
-
 <div class="sezioni-tavoli" style="display: flex; gap: 10px; margin-bottom: 20px; justify-content: center;">
+    <button class="btn-sezione-tavoli">TUTTI</button>
+    <button class="btn-sezione-tavoli">SALA 1</button>
+    <button class="btn-sezione-tavoli">SALA 2</button>
+    <button class="btn-sezione-tavoli">ESTERNO</button>
 </div>
 
 <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(140px, 1fr)); gap: 48px; justify-items:center;">
