@@ -1,0 +1,99 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Permetti lettura solo ai prodotti lucky
+    match /locali/{locale}/menu/{categoria}/prodotti/{prodotto} {
+      allow read: if resource.data.lucky == true;
+    }
+
+    // ✅ Documento principale del locale (per sfondo, logo, ecc.)
+    match /locali/{localeId} {
+      allow read: if true;
+    }
+
+    // 📦 ORDINI - consentito scrivere (da chiunque per ora)
+    match /locali/{locale}/ordini/{ordineId} {
+      allow read, write: if true;
+    }
+
+    // 🔓 Permette la lettura dei gradienti dei pulsanti (documento "pulsanti")
+    match /locali/{localeId}/pulsanti/{docId} {
+      allow read: if true;
+    }
+
+    // ✅ Accesso ai dati sfondo 
+    match /locali/{locale}/sfondo/{documentId} {
+      allow read: if true;
+    }
+
+    // ✅ Menu
+    match /locali/{locale}/menu/{document=**} {
+      allow read: if true;
+    }
+
+    // ✅ Chat pubblica
+    match /locali/{locale}/chat_pubblica/{messageId} {
+      allow read, write: if true;
+    }
+
+    // ✅ Tavoli online
+    match /locali/{locale}/tavoli_online/{tavoloId} {
+      allow read, write: if true;
+    }
+
+    // ✅ Richieste chat privata
+    match /locali/{locale}/private_chat_requests/{reqId} {
+      allow read, write: if true;
+    }
+
+    // ✅ Tavoli globali
+    match /tavoli_online/{tavoloId} {
+      allow read, write: if true;
+    }
+
+    // ✅ Foto galleria
+    match /locali/{locale}/photos/{photoId} {
+      allow read, write: if true;
+    }
+
+    // PERMETTI solo scrittura nei documenti 'partite_quiz' se utente autenticato
+    match /partite_quiz/{document} {
+      allow read, write: if request.auth != null;
+    }
+
+    // Permette tutto a chi è autenticato (inclusi anonimi)
+    match /{document=**} {
+      allow read, write: if request.auth != null;
+    }
+
+    // Accesso alle chat private
+    match /locali/{locale}/chat_private/{chatId}/messaggi/{messageId} {
+      allow read, write: if request.auth == null &&
+        (
+          chatId.matches('^' + request.resource.data.tavolo + '_.*$') ||
+          chatId.matches('^.*_' + request.resource.data.tavolo + '$')
+        );
+
+    // Abilita lettura/scrittura su ordini per tutti i locali
+    match /locali/{locale}/ordini/{ordineId} {
+      allow read, write: if true;
+    }
+
+    // (opzionale) Abilita lettura per menu e altri dati
+    match /locali/{locale}/{document=**} {
+      allow read: if true;
+    }
+
+    // Abilita lettura per sale appbarista
+    match /locali/{locale}/sale/{salaId} {
+      allow read, write: if true;
+     }
+   
+    // Abilita lettura per tavoli appbarista
+     match /locali/{locale}/sale/{salaId}/tavoli/{tavoloId} {
+      allow read, write: if true;
+     }
+    }
+   }
+  }
