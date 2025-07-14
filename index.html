@@ -61,7 +61,7 @@ sezioniProdottiContainer.appendChild(sezioneDiv);
 const prodottiRef = collection(db, "locali", localeCorrente, "menu", categoriaNome, "prodotti");
 
             // Carica prodotti per categoria
-            const prodottiRef = collection(db, "locali", localeCorrente, "menu", categoria, "prodotti");
+            //const prodottiRef = collection(db, "locali", localeCorrente, "menu", categoria, "prodotti");
             const snapshot = await getDocs(prodottiRef);
             const container = sezioneDiv.querySelector(".prodotti");
 
