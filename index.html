@@ -44,18 +44,21 @@
         categorie.forEach(async (categoria) => {
             // Crea pulsante dinamico
             const btn = document.createElement("button");
-            btn.textContent = (categoria.it || categoria.en || categoria.originale || categoria);
-            btn.onclick = () => {
-                document.getElementById(categoria).scrollIntoView({ behavior: 'smooth' });
-            };
-            categorieContainer.appendChild(btn);
+            const categoriaNome = typeof categoria === 'string' ? categoria : categoria.originale;
 
-            // Crea sezione dinamica
-            const sezioneDiv = document.createElement("div");
-            sezioneDiv.className = "sezione";
-            sezioneDiv.id = categoria;
-            sezioneDiv.innerHTML = `<h2>${categoria.it || categoria.en || categoria.originale || categoria}</h2><div class="prodotti" data-categoria="${categoria}"></div>`;
-            sezioniProdottiContainer.appendChild(sezioneDiv);
+btn.textContent = categoriaNome;
+btn.onclick = () => {
+    document.getElementById(categoriaNome).scrollIntoView({ behavior: 'smooth' });
+};
+categorieContainer.appendChild(btn);
+
+const sezioneDiv = document.createElement("div");
+sezioneDiv.className = "sezione";
+sezioneDiv.id = categoriaNome;
+sezioneDiv.innerHTML = `<h2>${categoriaNome}</h2><div class="prodotti" data-categoria="${categoriaNome}"></div>`;
+sezioniProdottiContainer.appendChild(sezioneDiv);
+
+const prodottiRef = collection(db, "locali", localeCorrente, "menu", categoriaNome, "prodotti");
 
             // Carica prodotti per categoria
             const prodottiRef = collection(db, "locali", localeCorrente, "menu", categoria, "prodotti");
