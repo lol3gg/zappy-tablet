@@ -1874,14 +1874,6 @@ document.querySelectorAll('.btn-sezione-tavoli').forEach(button => {
     });
 });
 
-// Click sul tavolo ➔ apri ordine simulato
-document.querySelectorAll('.tavolo').forEach(tavolo => {
-    tavolo.addEventListener('click', () => {
-        const tavoloNome = tavolo.querySelector('h3').textContent.trim();
-        
-    });
-});
-
 // Aggiorna conteggio iniziale
 aggiornaConteggio();
 </script>
@@ -1899,14 +1891,6 @@ aggiornaConteggio();
 
 <script>
 tavoloSelezionato = tavolo.querySelector('h3').textContent.trim();
-
-document.querySelectorAll('.tavolo').forEach(tavolo => {
-    tavolo.addEventListener('click', () => {
-        tavoloSelezionato = tavolo.querySelector('h3').textContent.trim();
-        document.getElementById('popupTavoloTitolo').textContent = tavoloSelezionato;
-        document.getElementById('popupTavolo').style.display = 'flex';
-    });
-});
 
 function chiudiPopupTavolo() {
     document.getElementById('popupTavolo').style.display = 'none';
