@@ -31,33 +31,48 @@
   tuttiBtn.textContent = 'TUTTI';
   saleContainer.appendChild(tuttiBtn);
 
-  const saleRef = collection(db, "locali", "zappydemo", "sale");
-  const saleSnap = await getDocs(saleRef);
+  try {
+    const saleRef = collection(db, "locali", "zappydemo", "sale");
+    const saleSnap = await getDocs(saleRef);
+    console.log("✅ Sale caricate:", saleSnap.size);
 
-  saleSnap.forEach(docSnap => {
-    const btn = document.createElement('button');
-    btn.className = 'btn-sezione-tavoli';
-    btn.textContent = docSnap.id;
+    saleSnap.forEach((docSnap) => {
+      console.log("📁 Sala trovata:", docSnap.id);
+      const btn = document.createElement('button');
+      btn.className = 'btn-sezione-tavoli';
+      btn.textContent = docSnap.id;
 
-    btn.onclick = async () => {
-      const tavoliGrid = document.querySelector('.tavoli-grid');
-      tavoliGrid.innerHTML = '';
+      btn.onclick = async () => {
+        const tavoliGrid = document.querySelector('.tavoli-grid');
+        tavoliGrid.innerHTML = '';
 
-      const tavoliRef = collection(db, "locali", "zappydemo", "sale", docSnap.id, "tavoli");
-      const tavoliSnap = await getDocs(tavoliRef);
+        try {
+          const tavoliRef = collection(db, "locali", "zappydemo", "sale", docSnap.id, "tavoli");
+          const tavoliSnap = await getDocs(tavoliRef);
+          console.log(`🪑 Tavoli della sala ${docSnap.id}: ${tavoliSnap.size}`);
 
-      tavoliSnap.forEach(tavoloDoc => {
-        const tavoloData = tavoloDoc.data();
-        const div = document.createElement('div');
-        div.className = 'tavolo';
-        div.innerHTML = `<h3>${tavoloData.nome}</h3><p>€ 0,00</p><p>Libero</p>`;
-        tavoliGrid.appendChild(div);
-      });
-    };
+          tavoliSnap.forEach((tavoloDoc) => {
+            console.log("🔸 Tavolo:", tavoloDoc.id, tavoloDoc.data());
+            const tavoloData = tavoloDoc.data();
+            const div = document.createElement('div');
+            div.className = 'tavolo';
+            div.innerHTML = `<h3>${tavoloData.nome}</h3><p>€ 0,00</p><p>Libero</p>`;
+            tavoliGrid.appendChild(div);
+          });
 
-    saleContainer.appendChild(btn);
-  });
+        } catch (err) {
+          console.error(`❌ Errore caricamento tavoli per sala ${docSnap.id}:`, err);
+        }
+      };
+
+      saleContainer.appendChild(btn);
+    });
+
+  } catch (err) {
+    console.error("❌ Errore caricamento sale:", err);
+  }
 }
+
 
     window.addEventListener("DOMContentLoaded", async () => {
     const localeCorrente = "zappydemo"; // intercambiabile per ogni cliente
