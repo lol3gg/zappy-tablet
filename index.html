@@ -38,16 +38,31 @@
     const btn = document.createElement('button');
     btn.className = 'btn-sezione-tavoli';
     btn.textContent = docSnap.id;
+
+    btn.onclick = async () => {
+      const tavoliGrid = document.querySelector('.tavoli-grid');
+      tavoliGrid.innerHTML = '';
+
+      const tavoliRef = collection(db, "locali", "zappydemo", "sale", docSnap.id, "tavoli");
+      const tavoliSnap = await getDocs(tavoliRef);
+
+      tavoliSnap.forEach(tavoloDoc => {
+        const tavoloData = tavoloDoc.data();
+        const div = document.createElement('div');
+        div.className = 'tavolo';
+        div.innerHTML = `<h3>${tavoloData.nome}</h3><p>€ 0,00</p><p>Libero</p>`;
+        tavoliGrid.appendChild(div);
+      });
+    };
+
     saleContainer.appendChild(btn);
   });
 }
 
-  
-
     window.addEventListener("DOMContentLoaded", async () => {
     const localeCorrente = "zappydemo"; // intercambiabile per ogni cliente
     await caricaSale();
-    
+
     const categorieDocRef = doc(db, "locali", localeCorrente, "menu", "categorie");
     const categorieDocSnap = await getDoc(categorieDocRef);
 
