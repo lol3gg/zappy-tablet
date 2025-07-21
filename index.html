@@ -2245,6 +2245,73 @@ function aggiornaGrafici(stats) {
   window.caricaStatistiche = caricaStatistiche;
   </script>
   
-
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
+    import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
+    
+    const firebaseConfig = { 
+      apiKey: "AIzaSyC-yyxd1dxn16hx9AUZDKgFpPLWl-YfWnHE",
+      authDomain: "zappy-24d29.firebaseapp.com",
+      projectId: "zappy-24d29",
+      storageBucket: "zappy-24d29.appspot.com",
+      messagingSenderId: "356775808247",
+      appId: "1:356775808247:web:a5395430ad3dc9aa7c17f2"
+    };
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    
+    async function caricaStatistiche() {
+      const ordiniRef = collection(db, "locali", "zappydemo", "ordini");
+      const ordiniSnap = await getDocs(ordiniRef);
+    
+      const stats = {
+        perGiorno: {},
+        prodottiVenduti: {},
+        categorieVendute: {},
+        aggiuntiAlCarrello: {},
+      };
+    
+      ordiniSnap.forEach(doc => {
+        const ordine = doc.data();
+        const data = ordine.data.toDate().toLocaleDateString('it-IT', { weekday: 'short' });
+        stats.perGiorno[data] = (stats.perGiorno[data] || 0) + 1;
+    
+        ordine.prodotti?.forEach(p => {
+          stats.prodottiVenduti[p.nome] = (stats.prodottiVenduti[p.nome] || 0) + p.quantita;
+          stats.categorieVendute[p.categoria] = (stats.categorieVendute[p.categoria] || 0) + p.quantita;
+          stats.aggiuntiAlCarrello[p.nome] = (stats.aggiuntiAlCarrello[p.nome] || 0) + (p.aggiuntoAlCarrello || 0);
+        });
+      });
+    
+      aggiornaGrafici(stats);
+    }
+    
+    let grafici = {};
+    
+    function aggiornaGrafici(stats) {
+      const config = (id, labels, data, label, color = 'rgba(57, 217, 169, 0.7)') => ({
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [{ label, data, backgroundColor: color }]
+        },
+        options: { responsive: true, scales: { y: { beginAtZero: true } } }
+      });
+    
+      const aggiornaGrafico = (id, labels, data, label) => {
+        if (grafici[id]) grafici[id].destroy();
+        grafici[id] = new Chart(document.getElementById(id), config(id, labels, data, label));
+      };
+    
+      aggiornaGrafico('graficoAndamento', Object.keys(stats.perGiorno), Object.values(stats.perGiorno), 'Andamento Ordini');
+      aggiornaGrafico('graficoTopProdotti', Object.keys(stats.prodottiVenduti), Object.values(stats.prodottiVenduti), 'Prodotti più venduti');
+      aggiornaGrafico('graficoTopOrdini', Object.keys(stats.prodottiVenduti), Object.values(stats.prodottiVenduti), 'Prodotti con più ordini');
+      aggiornaGrafico('graficoTopCategorie', Object.keys(stats.categorieVendute), Object.values(stats.categorieVendute), 'Categorie più vendute');
+      aggiornaGrafico('graficoAggiuntiCarrello', Object.keys(stats.aggiuntiAlCarrello), Object.values(stats.aggiuntiAlCarrello), 'Aggiunti al Carrello');
+    }
+    
+    window.caricaStatistiche = caricaStatistiche;
+    </script>
+    
 </body>
 </html>
