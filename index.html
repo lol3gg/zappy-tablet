@@ -1247,9 +1247,12 @@ html, body {
 <path d="M256 32c-70.7 0-128 57.3-128 128 0 32 24 96 128 224 104-128 128-192 128-224 0-70.7-57.3-128-128-128zM80 320c-26.5 0-48 21.5-48 48v80h48v-80h48v80h48v-80c0-26.5-21.5-48-48-48H80zm352 0c-26.5 0-48 21.5-48 48v80h48v-80h48v80h48v-80c0-26.5-21.5-48-48-48h-48z"/>
 </svg>
 
-</button>
 
-
+  <button id="btnStatistiche" style="margin: 40px 0; background: linear-gradient(135deg, #39D9A9, #00B4FF, #6A00FF); border: none; border-radius: 20px; width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.15); transition: transform 0.2s ease;">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="white" viewBox="0 0 24 24" width="28" height="28">
+        <path d="M3 17h2v-7H3v7zm4 0h2V7H7v10zm4 0h2v-4h-2v4zm4 0h2V3h-2v14zm4 0h2v-9h-2v9z"/>
+      </svg>
+  </button>
 
 </div>
 <div class="content">
@@ -2030,6 +2033,218 @@ function aggiungiAlTavolo() {
     document.getElementById('btnAggiungiAlTavolo').style.display = 'none';
 }
 </script>
+
+
+<div id="paginaStatistiche" style="display:none; padding:0; margin:0; width:100vw; min-height:100vh; overflow-y:auto;">
+  <h2 style="text-align: center; font-size: 28px; font-weight: 700; color: #007BFF;">Statistiche Ordini</h2>
+
+  <div style="background: white; border-radius: 16px; padding: 20px; margin: 20px auto; max-width: 1000px; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+      <h3>Ultime 24 ore</h3>
+      <select id="filtroPeriodo" style="padding: 8px; border-radius: 8px; border: 1px solid #ddd;">
+        <option value="1">1 giorno</option>
+        <option value="7" selected>1 settimana</option>
+        <option value="30">1 mese</option>
+        <option value="90">3 mesi</option>
+      </select>
+    </div>
+    <canvas id="grafico24h" style="margin-top: 20px;"></canvas>
+  </div>
+
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; max-width: 1000px; margin: 0 auto 50px auto;">
+    <div style="background: white; border-radius: 16px; padding: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
+      <h4>Prodotti più venduti</h4>
+      <canvas id="prodottiTop"></canvas>
+    </div>
+    <div style="background: white; border-radius: 16px; padding: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
+      <h4>Prodotti con più ordini</h4>
+      <canvas id="ordiniTop"></canvas>
+    </div>
+    <div style="background: white; border-radius: 16px; padding: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
+      <h4>Categorie più vendute</h4>
+      <canvas id="categorieTop"></canvas>
+    </div>
+    <div style="background: white; border-radius: 16px; padding: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
+      <h4>Più aggiunti al carrello</h4>
+      <canvas id="aggiuntiCarrello"></canvas>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+document.getElementById('btnStatistiche').addEventListener('click', () => {
+  document.querySelector('.content').style.display = 'none';
+  document.getElementById('paginaTavoli').style.display = 'none';
+  document.getElementById('paginaStatistiche').style.display = 'block';
+  caricaTuttiGrafici();
+});
+
+function caricaTuttiGrafici() {
+  caricaGraficoLinea('grafico24h', 'Ordini nel periodo selezionato', [5, 10, 7, 8, 6, 9]);
+  caricaGraficoBar('prodottiTop', 'Top prodotti venduti', ['Prod1', 'Prod2'], [30, 20]);
+  caricaGraficoBar('ordiniTop', 'Top prodotti ordinati', ['Prod1', 'Prod2'], [40, 15]);
+  caricaGraficoBar('categorieTop', 'Top categorie', ['Cat1', 'Cat2'], [50, 30]);
+  caricaGraficoBar('aggiuntiCarrello', 'Aggiunti al carrello', ['Prod1', 'Prod2'], [100, 80]);
+}
+
+function caricaGraficoLinea(id, label, data) {
+  new Chart(document.getElementById(id).getContext('2d'), {
+    type: 'line',
+    data: {
+      labels: ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab'],
+      datasets: [{
+        label: label,
+        data: data,
+        borderColor: '#39D9A9',
+        backgroundColor: 'rgba(57,217,169,0.2)',
+        fill: true,
+        tension: 0.3
+      }]
+    },
+    options: {
+      responsive: true
+    }
+  });
+}
+
+function caricaGraficoBar(id, label, labels, data) {
+  new Chart(document.getElementById(id).getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: label,
+        data: data,
+        backgroundColor: '#007BFF'
+      }]
+    },
+    options: {
+      responsive: true,
+      indexAxis: 'y'
+    }
+  });
+}
+</script>
+
+
+<div id="paginaStatistiche" style="display:none; padding:0; margin:0; width:100vw; min-height:100vh; overflow-y:auto;">
+  <h2 style="text-align: center; font-size: 28px; font-weight: 700; color: #007BFF;">Statistiche Gestione Locale</h2>
+
+  <div style="display: flex; justify-content: center; gap: 20px; margin: 20px 0; flex-wrap: wrap;">
+    <div class="stat-card" style="flex: 1 1 250px; margin: 10px;"><h4>Incasso Totale</h4><p id="incassoTotale">€ 0</p></div>
+    <div class="stat-card" style="flex: 1 1 250px; margin: 10px;"><h4>Numero Ordini</h4><p id="numeroOrdini">0</p></div>
+    <div class="stat-card" style="flex: 1 1 250px; margin: 10px;"><h4>Ticket Medio</h4><p id="ticketMedio">€ 0</p></div>
+  </div>
+
+  <div style="margin: 20px 0; background: white; padding: 20px; border-radius: 16px; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
+    <h3>Andamento Ordini (Ultima Settimana)</h3>
+    <canvas id="graficoAndamento"></canvas>
+  </div>
+
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-bottom: 50px;">
+    <div class="stat-box"><h4>Top 5 Prodotti più venduti</h4><canvas id="graficoTopProdotti"></canvas></div>
+    <div class="stat-box"><h4>Top 5 Prodotti con più ordini</h4><canvas id="graficoTopOrdini"></canvas></div>
+    <div class="stat-box"><h4>Top 5 Categorie più vendute</h4><canvas id="graficoTopCategorie"></canvas></div>
+    <div class="stat-box"><h4>Orari di punta</h4><canvas id="graficoOrari"></canvas></div>
+    <div class="stat-box"><h4>Più aggiunti al carrello</h4><canvas id="graficoAggiuntiCarrello"></canvas></div>
+    <div class="stat-box"><h4>Più rimossi dal carrello</h4><canvas id="graficoRimossiCarrello"></canvas></div>
+  </div>
+</div>
+
+<script>
+ document.getElementById('btnStatistiche').addEventListener('click', () => {
+  document.querySelector('.content').style.display = 'none';
+  document.getElementById('paginaTavoli').style.display = 'none';
+  document.getElementById('paginaStatistiche').style.display = 'block';
+
+  caricaStatistiche();  // ✅ La funzione che carica gli ordini da Firebase
+});
+ 
+
+  document.getElementById('btnHome').addEventListener('click', () => {
+    document.querySelector('.content').style.display = 'flex';
+    document.getElementById('paginaTavoli').style.display = 'none';
+    document.getElementById('paginaStatistiche').style.display = 'none';
+  });
+
+  document.getElementById('btnTavoli').addEventListener('click', () => {
+    document.querySelector('.content').style.display = 'none';
+    document.getElementById('paginaTavoli').style.display = 'flex';
+    document.getElementById('paginaStatistiche').style.display = 'none';
+  });
+</script>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
+  import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
+  
+  const firebaseConfig = { /* usa il tuo config già presente */ };
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+  
+  async function caricaStatistiche(locale = "zappydemo") {
+    const ordiniRef = collection(db, "locali", locale, "ordini");
+    const ordiniSnap = await getDocs(ordiniRef);
+  
+    const stats = {
+      perGiorno: {},
+      prodottiVenduti: {},
+      categorieVendute: {},
+      aggiuntiAlCarrello: {},
+    };
+  
+    ordiniSnap.forEach(doc => {
+      const ordine = doc.data();
+      const data = ordine.data?.toDate().toLocaleDateString('it-IT', { weekday: 'short' });
+      stats.perGiorno[data] = (stats.perGiorno[data] || 0) + 1;
+  
+      ordine.prodotti?.forEach(p => {
+        stats.prodottiVenduti[p.nome] = (stats.prodottiVenduti[p.nome] || 0) + p.quantita;
+        stats.categorieVendute[p.categoria] = (stats.categorieVendute[p.categoria] || 0) + p.quantita;
+        stats.aggiuntiAlCarrello[p.nome] = (stats.aggiuntiAlCarrello[p.nome] || 0) + (p.aggiuntoAlCarrello || 0);
+      });
+    });
+  
+    aggiornaGrafici(stats);
+  }
+  
+  let grafici = {};
+
+function aggiornaGrafici(stats) {
+  const config = (labels, data, label, color = 'rgba(57, 217, 169, 0.7)') => ({
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: label,
+        data: data,
+        backgroundColor: color
+      }]
+    },
+    options: {
+      responsive: true,
+      scales: { y: { beginAtZero: true } }
+    }
+  });
+
+  const aggiornaGrafico = (id, labels, data, label) => {
+    if (grafici[id]) grafici[id].destroy();
+    grafici[id] = new Chart(document.getElementById(id), config(labels, data, label));
+  };
+
+  aggiornaGrafico('graficoAndamento', Object.keys(stats.perGiorno), Object.values(stats.perGiorno), 'Andamento Ordini');
+  aggiornaGrafico('graficoTopProdotti', Object.keys(stats.prodottiVenduti), Object.values(stats.prodottiVenduti), 'Prodotti più Venduti');
+  aggiornaGrafico('graficoTopOrdini', Object.keys(stats.prodottiVenduti), Object.values(stats.prodottiVenduti), 'Prodotti con più Ordini');
+  aggiornaGrafico('graficoTopCategorie', Object.keys(stats.categorieVendute), Object.values(stats.categorieVendute), 'Categorie più Vendute');
+  aggiornaGrafico('graficoOrdari', Object.keys(stats.perGiorno), Object.values(stats.perGiorno), 'Ordini Giornalieri');
+  aggiornaGrafico('graficoAggiuntiCarrello', Object.keys(stats.aggiuntiAlCarrello), Object.values(stats.aggiuntiAlCarrello), 'Aggiunti al Carrello');
+}
+
+  
+  window.caricaStatistiche = caricaStatistiche;
+  </script>
+  
 
 </body>
 </html>
