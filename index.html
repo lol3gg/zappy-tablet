@@ -8,7 +8,7 @@
 <title>Zappy Vendita Banco</title>
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
-    import { getFirestore, collection, getDocs, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
+    import { getFirestore, collection, getDocs, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyC-yyxd1dxn16hx9AUZDKgFpPLWl-YfWnHE",
@@ -19,65 +19,118 @@
       appId: "1:356775808247:web:a5395430ad3dc9aa7c17f2"
     };
 
-    let app;
-if (!getApps().length) {
-  app = initializeApp(firebaseConfig);
-} else {
-  app = getApps()[0];
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+// === FUNZIONI TAVOLI ===
+async function contaTotaleTavoli() {
+  let total = 0;
+  const saleRef = collection(db, "locali", "zappydemo", "sale");
+  const saleSnap = await getDocs(saleRef);
+  for (const sala of saleSnap.docs) {
+    const tavoliRef = collection(db, "locali", "zappydemo", "sale", sala.id, "tavoli");
+    const tavoliSnap = await getDocs(tavoliRef);
+    total += tavoliSnap.size;
+  }
+  return total;
 }
-const db = getFirestore(app);
+function parseNum(name){ const m = String(name||'').match(/(\d+)/); return m?parseInt(m[1],10):Number.MAX_SAFE_INTEGER; }
+function renderTavoloCard(tavoloDoc){
+const d = tavoloDoc.data ? tavoloDoc.data() : tavoloDoc;
+  const nome = (d && d.nome) || tavoloDoc.id || "Tavolo";
+  const occupato = d && (d.occupato===true || d.stato==='occupato');
+  const statoTxt = occupato ? 'Occupato' : 'Libero';
+  const statoClr = occupato ? '#d63031' : '#00b894';
+  const div = document.createElement('div');
+  div.className = 'tavolo';
+  div.innerHTML = `<h3>${nome}</h3><p>€ 0,00</p><p style="color:${statoClr}; font-weight:700;">${statoTxt}</p>`;
   
-    async function caricaSale() {
+  // ricavo salaId e tavoloId dal path del documento
+  let salaId = null, tavoloId = tavoloDoc.id || null;
+  try { salaId = tavoloDoc.ref.parent.parent.id; } catch(_) {}
+  div.onclick = () => apriPopupOrdiniTavolo({ salaId, tavoloId, nome });
+
+  return div;
+}
+async function caricaTavoliDiSala(salaId){
+  const grid = document.querySelector('.tavoli-grid');
+  if(!grid) return;
+  grid.innerHTML = '';
+  try{
+    const tavoliRef = collection(db, "locali", "zappydemo", "sale", salaId, "tavoli");
+    const snap = await getDocs(tavoliRef);
+    const arr = snap.docs.slice().sort((a,b)=>parseNum((a.data().nome||a.id)) - parseNum((b.data().nome||b.id)));
+    arr.forEach(doc=> grid.appendChild(renderTavoloCard(doc)));
+    aggiornaConteggio();
+  }catch(e){ console.error("Errore sala", salaId, e); }
+}
+async function caricaTuttiTavoli(){
+  const grid = document.querySelector('.tavoli-grid');
+  if(!grid) return;
+  grid.innerHTML = '';
+  try{
+    const saleSnap = await getDocs(collection(db, "locali", "zappydemo", "sale"));
+    let all = [];
+    for(const sala of saleSnap.docs){
+      const tavoliSnap = await getDocs(collection(db, "locali", "zappydemo", "sale", sala.id, "tavoli"));
+      tavoliSnap.forEach(doc=> all.push(doc));
+    }
+    all.sort((a,b)=>parseNum((a.data().nome||a.id)) - parseNum((b.data().nome||b.id)));
+    all.forEach(doc=> grid.appendChild(renderTavoloCard(doc)));
+    aggiornaConteggio();
+  }catch(e){ console.error("Errore TUTTI", e); }
+}
+async function aggiornaConteggio(){
+  const visibili = document.querySelectorAll('.tavoli-grid .tavolo').length;
+  const el = document.getElementById('conteggioTavoli');
+  if(!el) return;
+  try{
+    const tot = await contaTotaleTavoli();
+    el.textContent = `Tavoli visibili: ${visibili}/${tot}`;
+  }catch(_){ el.textContent = `Tavoli visibili: ${visibili}`; }
+}
+
+  
+    
+async function caricaSale() {
   const saleContainer = document.querySelector(".sezioni-tavoli");
+  if (!saleContainer) return;
   saleContainer.innerHTML = '';
 
+  // Bottone TUTTI
   const tuttiBtn = document.createElement('button');
-  tuttiBtn.className = 'btn-sezione-tavoli';
+  tuttiBtn.className = 'btn-sezione-tavoli active-tavoli';
   tuttiBtn.textContent = 'TUTTI';
+  tuttiBtn.onclick = async () => {
+    document.querySelectorAll('.btn-sezione-tavoli').forEach(b=>b.classList.remove('active-tavoli'));
+    tuttiBtn.classList.add('active-tavoli');
+    await caricaTuttiTavoli();
+  
+  ensureBackButton();
+};
   saleContainer.appendChild(tuttiBtn);
 
   try {
     const saleRef = collection(db, "locali", "zappydemo", "sale");
     const saleSnap = await getDocs(saleRef);
-    console.log("✅ Sale caricate:", saleSnap.size);
-
-    saleSnap.forEach((docSnap) => {
-      console.log("📁 Sala trovata:", docSnap.id);
+    const nomiSale = saleSnap.docs.map(d=>d.id).sort();
+    nomiSale.forEach(id => {
       const btn = document.createElement('button');
       btn.className = 'btn-sezione-tavoli';
-      btn.textContent = docSnap.id;
-
+      btn.textContent = id;
       btn.onclick = async () => {
-        const tavoliGrid = document.querySelector('.tavoli-grid');
-        tavoliGrid.innerHTML = '';
-
-        try {
-          const tavoliRef = collection(db, "locali", "zappydemo", "sale", docSnap.id, "tavoli");
-          const tavoliSnap = await getDocs(tavoliRef);
-          console.log(`🪑 Tavoli della sala ${docSnap.id}: ${tavoliSnap.size}`);
-
-          tavoliSnap.forEach((tavoloDoc) => {
-            console.log("🔸 Tavolo:", tavoloDoc.id, tavoloDoc.data());
-            const tavoloData = tavoloDoc.data();
-            const div = document.createElement('div');
-            div.className = 'tavolo';
-            div.innerHTML = `<h3>${tavoloData.nome}</h3><p>€ 0,00</p><p>Libero</p>`;
-            tavoliGrid.appendChild(div);
-          });
-
-        } catch (err) {
-          console.error(`❌ Errore caricamento tavoli per sala ${docSnap.id}:`, err);
-        }
+        document.querySelectorAll('.btn-sezione-tavoli').forEach(b=>b.classList.remove('active-tavoli'));
+        btn.classList.add('active-tavoli');
+        await caricaTavoliDiSala(id);
       };
-
       saleContainer.appendChild(btn);
     });
-
   } catch (err) {
     console.error("❌ Errore caricamento sale:", err);
   }
-}
 
+  // Carico TUTTI al primo avvio sulla pagina Tavoli
+  await caricaTuttiTavoli();
+}
 
     window.addEventListener("DOMContentLoaded", async () => {
     const localeCorrente = "zappydemo"; // intercambiabile per ogni cliente
@@ -793,15 +846,49 @@ document.addEventListener('DOMContentLoaded', () => {
 @keyframes scaleIn {
   from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; }
 }
-</style>
 
+/* === Pulsante "Aggiungi al tavolo" (visibile solo in modalità assegnazione tavolo) === */
+#btn-aggiungi-al-tavolo {
+  position: fixed;
+  right: 16px;
+  bottom: 82px; /* poco sopra il carrello fisso */
+  display: none;
+  z-index: 2100;
+  padding: 12px 16px;
+  border: none;
+  border-radius: 16px;
+  font-weight: 800;
+  cursor: pointer;
+  background: linear-gradient(135deg, #39D9A9, #00B4FF, #6A00FF);
+  color: #fff;
+  box-shadow: 0 10px 22px rgba(0,0,0,0.18);
+}
+
+</style>
 <style>
 .barrato {
     text-decoration: line-through;
     color: #999;
 }
-</style>
 
+/* === Pulsante "Aggiungi al tavolo" (visibile solo in modalità assegnazione tavolo) === */
+#btn-aggiungi-al-tavolo {
+  position: fixed;
+  right: 16px;
+  bottom: 82px; /* poco sopra il carrello fisso */
+  display: none;
+  z-index: 2100;
+  padding: 12px 16px;
+  border: none;
+  border-radius: 16px;
+  font-weight: 800;
+  cursor: pointer;
+  background: linear-gradient(135deg, #39D9A9, #00B4FF, #6A00FF);
+  color: #fff;
+  box-shadow: 0 10px 22px rgba(0,0,0,0.18);
+}
+
+</style>
 <style>
 .sidebar {
     display: flex;
@@ -849,19 +936,49 @@ button, .button {
     padding: 10px !important;
     border-radius: 10px !important;
 }
-</style>
 
+/* === Pulsante "Aggiungi al tavolo" (visibile solo in modalità assegnazione tavolo) === */
+#btn-aggiungi-al-tavolo {
+  position: fixed;
+  right: 16px;
+  bottom: 82px; /* poco sopra il carrello fisso */
+  display: none;
+  z-index: 2100;
+  padding: 12px 16px;
+  border: none;
+  border-radius: 16px;
+  font-weight: 800;
+  cursor: pointer;
+  background: linear-gradient(135deg, #39D9A9, #00B4FF, #6A00FF);
+  color: #fff;
+  box-shadow: 0 10px 22px rgba(0,0,0,0.18);
+}
+
+</style>
 <style>
 #btnHome:hover, #btnTavoli:hover {
     transform: scale(1.08);
     box-shadow: 0 6px 14px rgba(0,0,0,0.2);
 }
+
+/* === Pulsante "Aggiungi al tavolo" (visibile solo in modalità assegnazione tavolo) === */
+#btn-aggiungi-al-tavolo {
+  position: fixed;
+  right: 16px;
+  bottom: 82px; /* poco sopra il carrello fisso */
+  display: none;
+  z-index: 2100;
+  padding: 12px 16px;
+  border: none;
+  border-radius: 16px;
+  font-weight: 800;
+  cursor: pointer;
+  background: linear-gradient(135deg, #39D9A9, #00B4FF, #6A00FF);
+  color: #fff;
+  box-shadow: 0 10px 22px rgba(0,0,0,0.18);
+}
+
 </style>
-
-
-
-
-
 <style>
 .riepilogo-order {
     display: flex;
@@ -881,9 +998,25 @@ button, .button {
     padding: 12px;
     z-index: 9999;
 }
+
+/* === Pulsante "Aggiungi al tavolo" (visibile solo in modalità assegnazione tavolo) === */
+#btn-aggiungi-al-tavolo {
+  position: fixed;
+  right: 16px;
+  bottom: 82px; /* poco sopra il carrello fisso */
+  display: none;
+  z-index: 2100;
+  padding: 12px 16px;
+  border: none;
+  border-radius: 16px;
+  font-weight: 800;
+  cursor: pointer;
+  background: linear-gradient(135deg, #39D9A9, #00B4FF, #6A00FF);
+  color: #fff;
+  box-shadow: 0 10px 22px rgba(0,0,0,0.18);
+}
+
 </style>
-
-
 <style>
 #paginaTavoli {
     display: flex;
@@ -914,7 +1047,7 @@ button, .button {
     border-radius: 16px;
     padding: 15px;
     width: 100%;
-    max-width: 140px;
+    max-width: none;
     text-align: center;
     box-shadow: 0 4px 10px rgba(0,0,0,0.1);
     transition: transform 0.2s;
@@ -952,9 +1085,25 @@ button, .button {
     transform: scale(1.05);
     box-shadow: 0 4px 12px rgba(0,0,0,0.2);
 }
+
+/* === Pulsante "Aggiungi al tavolo" (visibile solo in modalità assegnazione tavolo) === */
+#btn-aggiungi-al-tavolo {
+  position: fixed;
+  right: 16px;
+  bottom: 82px; /* poco sopra il carrello fisso */
+  display: none;
+  z-index: 2100;
+  padding: 12px 16px;
+  border: none;
+  border-radius: 16px;
+  font-weight: 800;
+  cursor: pointer;
+  background: linear-gradient(135deg, #39D9A9, #00B4FF, #6A00FF);
+  color: #fff;
+  box-shadow: 0 10px 22px rgba(0,0,0,0.18);
+}
+
 </style>
-
-
 <style>
 #paginaTavoli {
     display: flex;
@@ -987,7 +1136,7 @@ button, .button {
     border-radius: 16px;
     padding: 20px;
     width: 100%;
-    max-width: 140px;
+    max-width: none;
     text-align: center;
     box-shadow: 0 8px 20px rgba(0,0,0,0.08);
     transition: transform 0.2s, box-shadow 0.2s;
@@ -1026,9 +1175,25 @@ button, .button {
     transform: scale(1.06);
     box-shadow: 0 6px 16px rgba(0,0,0,0.15);
 }
+
+/* === Pulsante "Aggiungi al tavolo" (visibile solo in modalità assegnazione tavolo) === */
+#btn-aggiungi-al-tavolo {
+  position: fixed;
+  right: 16px;
+  bottom: 82px; /* poco sopra il carrello fisso */
+  display: none;
+  z-index: 2100;
+  padding: 12px 16px;
+  border: none;
+  border-radius: 16px;
+  font-weight: 800;
+  cursor: pointer;
+  background: linear-gradient(135deg, #39D9A9, #00B4FF, #6A00FF);
+  color: #fff;
+  box-shadow: 0 10px 22px rgba(0,0,0,0.18);
+}
+
 </style>
-
-
 <style>
 #paginaTavoli {
     display: flex;
@@ -1059,7 +1224,7 @@ button, .button {
     border-radius: 18px;
     padding: 16px;
     width: 100%;
-    max-width: 150px;
+    max-width: none;
     text-align: center;
     box-shadow: 0 4px 12px rgba(0,0,0,0.08);
     transition: transform 0.2s, box-shadow 0.2s;
@@ -1106,9 +1271,25 @@ button, .button {
     transform: scale(1.06);
     box-shadow: 0 6px 16px rgba(0,0,0,0.15);
 }
+
+/* === Pulsante "Aggiungi al tavolo" (visibile solo in modalità assegnazione tavolo) === */
+#btn-aggiungi-al-tavolo {
+  position: fixed;
+  right: 16px;
+  bottom: 82px; /* poco sopra il carrello fisso */
+  display: none;
+  z-index: 2100;
+  padding: 12px 16px;
+  border: none;
+  border-radius: 16px;
+  font-weight: 800;
+  cursor: pointer;
+  background: linear-gradient(135deg, #39D9A9, #00B4FF, #6A00FF);
+  color: #fff;
+  box-shadow: 0 10px 22px rgba(0,0,0,0.18);
+}
+
 </style>
-
-
 <style>
 html, body {
     height: 100%;
@@ -1119,9 +1300,25 @@ html, body {
     overflow-y: auto;
     height: 100vh;
 }
+
+/* === Pulsante "Aggiungi al tavolo" (visibile solo in modalità assegnazione tavolo) === */
+#btn-aggiungi-al-tavolo {
+  position: fixed;
+  right: 16px;
+  bottom: 82px; /* poco sopra il carrello fisso */
+  display: none;
+  z-index: 2100;
+  padding: 12px 16px;
+  border: none;
+  border-radius: 16px;
+  font-weight: 800;
+  cursor: pointer;
+  background: linear-gradient(135deg, #39D9A9, #00B4FF, #6A00FF);
+  color: #fff;
+  box-shadow: 0 10px 22px rgba(0,0,0,0.18);
+}
+
 </style>
-
-
 <style>
 .btn-sezione-tavoli {
     padding: 10px 16px;
@@ -1138,16 +1335,48 @@ html, body {
     transform: scale(1.05);
     background: linear-gradient(135deg, #2cbf93, #009de0, #5800cc);
 }
+
+/* === Pulsante "Aggiungi al tavolo" (visibile solo in modalità assegnazione tavolo) === */
+#btn-aggiungi-al-tavolo {
+  position: fixed;
+  right: 16px;
+  bottom: 82px; /* poco sopra il carrello fisso */
+  display: none;
+  z-index: 2100;
+  padding: 12px 16px;
+  border: none;
+  border-radius: 16px;
+  font-weight: 800;
+  cursor: pointer;
+  background: linear-gradient(135deg, #39D9A9, #00B4FF, #6A00FF);
+  color: #fff;
+  box-shadow: 0 10px 22px rgba(0,0,0,0.18);
+}
+
 </style>
-
-
 <style>
 .active-tavoli {
     box-shadow: 0 0 0 3px rgba(57, 217, 169, 0.5);
 }
+
+/* === Pulsante "Aggiungi al tavolo" (visibile solo in modalità assegnazione tavolo) === */
+#btn-aggiungi-al-tavolo {
+  position: fixed;
+  right: 16px;
+  bottom: 82px; /* poco sopra il carrello fisso */
+  display: none;
+  z-index: 2100;
+  padding: 12px 16px;
+  border: none;
+  border-radius: 16px;
+  font-weight: 800;
+  cursor: pointer;
+  background: linear-gradient(135deg, #39D9A9, #00B4FF, #6A00FF);
+  color: #fff;
+  box-shadow: 0 10px 22px rgba(0,0,0,0.18);
+}
+
 </style>
-
-
 <style>
 #popupTavolo {
     position: fixed;
@@ -1187,9 +1416,25 @@ html, body {
 #popupTavoloContent button:hover {
     background: #2cbf93;
 }
+
+/* === Pulsante "Aggiungi al tavolo" (visibile solo in modalità assegnazione tavolo) === */
+#btn-aggiungi-al-tavolo {
+  position: fixed;
+  right: 16px;
+  bottom: 82px; /* poco sopra il carrello fisso */
+  display: none;
+  z-index: 2100;
+  padding: 12px 16px;
+  border: none;
+  border-radius: 16px;
+  font-weight: 800;
+  cursor: pointer;
+  background: linear-gradient(135deg, #39D9A9, #00B4FF, #6A00FF);
+  color: #fff;
+  box-shadow: 0 10px 22px rgba(0,0,0,0.18);
+}
+
 </style>
-
-
 <style>
 #btnAggiungiAlTavolo {
     position: fixed;
@@ -1209,13 +1454,226 @@ html, body {
 #btnAggiungiAlTavolo:hover {
     background: #2cbf93;
 }
-</style>
 
+/* === Pulsante "Aggiungi al tavolo" (visibile solo in modalità assegnazione tavolo) === */
+#btn-aggiungi-al-tavolo {
+  position: fixed;
+  right: 16px;
+  bottom: 82px; /* poco sopra il carrello fisso */
+  display: none;
+  z-index: 2100;
+  padding: 12px 16px;
+  border: none;
+  border-radius: 16px;
+  font-weight: 800;
+  cursor: pointer;
+  background: linear-gradient(135deg, #39D9A9, #00B4FF, #6A00FF);
+  color: #fff;
+  box-shadow: 0 10px 22px rgba(0,0,0,0.18);
+}
+
+</style>
+<style>
+/* === ZAPPY: OVERRIDE GRIGLIA TAVOLI (ultimo blocco) === */
+#paginaTavoli .tavoli-grid {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)) !important;
+  gap: 20px !important;
+  width: min(1200px, 100%) !important;
+  margin: 0 auto !important;
+  justify-items: center !important;
+}
+#paginaTavoli .tavolo {
+  width: 220px !important;
+  max-width: none !important;
+}
+/* Centro i bottoni delle sale e limito la larghezza contenuto */
+#paginaTavoli .sezioni-tavoli {
+  justify-content: center !important;
+}
+
+/* === Pulsante "Aggiungi al tavolo" (visibile solo in modalità assegnazione tavolo) === */
+#btn-aggiungi-al-tavolo {
+  position: fixed;
+  right: 16px;
+  bottom: 82px; /* poco sopra il carrello fisso */
+  display: none;
+  z-index: 2100;
+  padding: 12px 16px;
+  border: none;
+  border-radius: 16px;
+  font-weight: 800;
+  cursor: pointer;
+  background: linear-gradient(135deg, #39D9A9, #00B4FF, #6A00FF);
+  color: #fff;
+  box-shadow: 0 10px 22px rgba(0,0,0,0.18);
+}
+
+</style>
+<style>
+#paginaTavoli .tavoli-grid {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)) !important;
+  gap: 20px !important;
+  width: min(1200px, 100%) !important;
+  margin: 0 auto !important;
+  justify-items: center !important;
+}
+#paginaTavoli .tavolo { width: 220px !important; }
+
+/* === Pulsante "Aggiungi al tavolo" (visibile solo in modalità assegnazione tavolo) === */
+#btn-aggiungi-al-tavolo {
+  position: fixed;
+  right: 16px;
+  bottom: 82px; /* poco sopra il carrello fisso */
+  display: none;
+  z-index: 2100;
+  padding: 12px 16px;
+  border: none;
+  border-radius: 16px;
+  font-weight: 800;
+  cursor: pointer;
+  background: linear-gradient(135deg, #39D9A9, #00B4FF, #6A00FF);
+  color: #fff;
+  box-shadow: 0 10px 22px rgba(0,0,0,0.18);
+}
+
+</style>
+<style>
+.btn-back-vendita{
+  background:#ff5c5c; color:#fff; border:none; padding:12px 20px;
+  border-radius:12px; font-weight:700; cursor:pointer;
+  transition:transform .1s, box-shadow .2s, background .2s;
+}
+.btn-back-vendita:hover{ transform:translateY(-1px); box-shadow:0 6px 16px rgba(255,92,92,.35); background:#ff4a4a; }
+.tavoli-actions{ text-align:center; margin-top:28px; }
+
+/* === Pulsante "Aggiungi al tavolo" (visibile solo in modalità assegnazione tavolo) === */
+#btn-aggiungi-al-tavolo {
+  position: fixed;
+  right: 16px;
+  bottom: 82px; /* poco sopra il carrello fisso */
+  display: none;
+  z-index: 2100;
+  padding: 12px 16px;
+  border: none;
+  border-radius: 16px;
+  font-weight: 800;
+  cursor: pointer;
+  background: linear-gradient(135deg, #39D9A9, #00B4FF, #6A00FF);
+  color: #fff;
+  box-shadow: 0 10px 22px rgba(0,0,0,0.18);
+}
+
+</style>
+<style>
+/* === Popup Ordini Tavolo === */
+#popup-ordini-tavolo {
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0.45);
+  z-index: 2000;
+}
+#popup-ordini-tavolo .box {
+  width: min(540px, 92vw);
+  max-height: 80vh;
+  overflow: hidden;
+  background: #ffffff;
+  border-radius: 18px;
+  box-shadow: 0 12px 30px rgba(0,0,0,0.18);
+  display: flex;
+  flex-direction: column;
+}
+#popup-ordini-tavolo .header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid #eee;
+}
+#popup-ordini-tavolo .header h3 {
+  margin: 0;
+  font-size: 18px;
+}
+#popup-ordini-tavolo .close {
+  border: none;
+  background: #f3f3f3;
+  border-radius: 10px;
+  padding: 6px 10px;
+  cursor: pointer;
+  font-weight: 600;
+}
+#popup-ordini-tavolo .content {
+  padding: 8px 16px 4px;
+  overflow-y: auto;
+}
+#popup-ordini-tavolo .riga {
+  display: grid;
+  grid-template-columns: 1fr 52px 76px;
+  gap: 8px;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px dashed #e9e9e9;
+}
+#popup-ordini-tavolo .riga .nome { font-weight: 600; }
+#popup-ordini-tavolo .riga .qty { text-align: center; }
+#popup-ordini-tavolo .riga .prezzo { text-align: right; }
+#popup-ordini-tavolo .footer {
+  padding: 12px 16px 16px;
+  border-top: 1px solid #eee;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+#popup-ordini-tavolo .footer .totale {
+  font-size: 16px;
+  font-weight: 700;
+}
+#popup-ordini-tavolo .footer .azioni {
+  display: flex;
+  gap: 8px;
+}
+#popup-ordini-tavolo .footer button {
+  border: none;
+  border-radius: 12px;
+  padding: 10px 14px;
+  cursor: pointer;
+  font-weight: 700;
+}
+#popup-ordini-tavolo .footer .chiudi {
+  background: #ededed;
+}
+#popup-ordini-tavolo .footer .vai-a-pagamento {
+  background: linear-gradient(135deg, #39D9A9, #00B4FF, #6A00FF);
+  color: #fff;
+}
+
+/* === Pulsante "Aggiungi al tavolo" (visibile solo in modalità assegnazione tavolo) === */
+#btn-aggiungi-al-tavolo {
+  position: fixed;
+  right: 16px;
+  bottom: 82px; /* poco sopra il carrello fisso */
+  display: none;
+  z-index: 2100;
+  padding: 12px 16px;
+  border: none;
+  border-radius: 16px;
+  font-weight: 800;
+  cursor: pointer;
+  background: linear-gradient(135deg, #39D9A9, #00B4FF, #6A00FF);
+  color: #fff;
+  box-shadow: 0 10px 22px rgba(0,0,0,0.18);
+}
+
+</style>
 </head>
 <body>
 <div class="sidebar">
 <div style="font-size: 20px; font-weight: bold; margin: 20px 0; text-align: center;">Zappy</div>
-
 <button id="btnHome" style="
     margin: 40px 0;
     background: linear-gradient(135deg, #39D9A9, #00B4FF, #6A00FF);
@@ -1230,9 +1688,8 @@ html, body {
     box-shadow: 0 4px 10px rgba(0,0,0,0.15);
     transition: transform 0.2s ease;
 ">
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white" width="28" height="28"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+<svg fill="white" height="28" viewbox="0 0 24 24" width="28" xmlns="http://www.w3.org/2000/svg"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"></path></svg>
 </button>
-
 <button id="btnTavoli" style="
     margin: 40px 0;
     background: linear-gradient(135deg, #39D9A9, #00B4FF, #6A00FF);
@@ -1247,24 +1704,19 @@ html, body {
     box-shadow: 0 4px 10px rgba(0,0,0,0.15);
     transition: transform 0.2s ease;
 ">
-    
-<svg xmlns="http://www.w3.org/2000/svg" fill="white" viewBox="0 0 512 512" width="28" height="28">
-<path d="M256 32c-70.7 0-128 57.3-128 128 0 32 24 96 128 224 104-128 128-192 128-224 0-70.7-57.3-128-128-128zM80 320c-26.5 0-48 21.5-48 48v80h48v-80h48v80h48v-80c0-26.5-21.5-48-48-48H80zm352 0c-26.5 0-48 21.5-48 48v80h48v-80h48v80h48v-80c0-26.5-21.5-48-48-48h-48z"/>
+<svg fill="white" height="28" viewbox="0 0 512 512" width="28" xmlns="http://www.w3.org/2000/svg">
+<path d="M256 32c-70.7 0-128 57.3-128 128 0 32 24 96 128 224 104-128 128-192 128-224 0-70.7-57.3-128-128-128zM80 320c-26.5 0-48 21.5-48 48v80h48v-80h48v80h48v-80c0-26.5-21.5-48-48-48H80zm352 0c-26.5 0-48 21.5-48 48v80h48v-80h48v80h48v-80c0-26.5-21.5-48-48-48h-48z"></path>
 </svg>
-
-
-  <button id="btnStatistiche" style="margin: 40px 0; background: linear-gradient(135deg, #39D9A9, #00B4FF, #6A00FF); border: none; border-radius: 20px; width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.15); transition: transform 0.2s ease;">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="white" viewBox="0 0 24 24" width="28" height="28">
-        <path d="M3 17h2v-7H3v7zm4 0h2V7H7v10zm4 0h2v-4h-2v4zm4 0h2V3h-2v14zm4 0h2v-9h-2v9z"/>
-      </svg>
-  </button>
-
-</div>
+<button id="btnStatistiche" style="margin: 40px 0; background: linear-gradient(135deg, #39D9A9, #00B4FF, #6A00FF); border: none; border-radius: 20px; width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.15); transition: transform 0.2s ease;">
+<svg fill="white" height="28" viewbox="0 0 24 24" width="28" xmlns="http://www.w3.org/2000/svg">
+<path d="M3 17h2v-7H3v7zm4 0h2V7H7v10zm4 0h2v-4h-2v4zm4 0h2V3h-2v14zm4 0h2v-9h-2v9z"></path>
+</svg>
+</button>
+</button></div>
 <div class="content">
-  <div class="categorie"></div>
-  <div class="prodotti"></div>
-  <div class="sezioni-prodotti"></div>
-  
+<div class="categorie"></div>
+<div class="prodotti"></div>
+<div class="sezioni-prodotti"></div>
 </div>
 <div class="riepilogo-order">
 <div class="ordine-header">
@@ -1272,7 +1724,7 @@ html, body {
 <div style="font-size: 16px;">Vendita diretta</div>
 </div>
 <div class="order-list"><p style="color:#555;">Nessun prodotto</p></div>
-<div class="ordine-footer">
+<button class="btn-add-to-table" id="btnAggAlTavoloSidebar">➕ Aggiungi al tavolo</button><div class="ordine-footer">
 <div class="totale">Totale: <strong>€ 0,00</strong></div>
 <div class="bottoni">
 <button class="subtotale">Subtotale</button>
@@ -1392,6 +1844,41 @@ html, body {
     box-shadow: 0 4px 12px rgba(0,0,0,0.1);
     transform: translateY(-2px);
 }
+
+/* === Pulsante "Aggiungi al tavolo" (visibile solo in modalità assegnazione tavolo) === */
+#btn-aggiungi-al-tavolo {
+  position: fixed;
+  right: 16px;
+  bottom: 82px; /* poco sopra il carrello fisso */
+  display: none;
+  z-index: 2100;
+  padding: 12px 16px;
+  border: none;
+  border-radius: 16px;
+  font-weight: 800;
+  cursor: pointer;
+  background: linear-gradient(135deg, #39D9A9, #00B4FF, #6A00FF);
+  color: #fff;
+  box-shadow: 0 10px 22px rgba(0,0,0,0.18);
+}
+
+
+
+/* === ZAPPY: Pulsante contestuale "Aggiungi al tavolo" (solo pagina prodotti) === */
+.btn-add-to-table{
+  display:none;
+  width:100%;
+  background: linear-gradient(135deg, #39D9A9, #00B4FF, #6A00FF);
+  color:#fff;
+  font-weight:800;
+  border:none;
+  border-radius:12px;
+  padding:12px 14px;
+  cursor:pointer;
+  margin-bottom:10px;
+  box-shadow:0 8px 18px rgba(0,0,0,0.12);
+}
+.btn-add-to-table:hover{ filter:brightness(1.03); }
 </style>
 <script>
 
@@ -1585,7 +2072,6 @@ function aggiornaOrdine() {
 <div class="row">
 <button class="altro">Altro</button>
 </div>
-
 <div class="modalita-section" id="modalita-parziale" style="display:none;">
 <p style="text-align:center;">Importo parziale (€)</p>
 <div style="display:flex; justify-content:center; align-items:center; gap:10px;">
@@ -1633,41 +2119,39 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 });
 </script>
-<div id="popup-subtotale" class="popup-subtotale">
-  <div class="popup-content-subtotale">
-    <h3>Subtotale ( € )</h3>
-    <div class="totali-subtotale">
-      <div><span>Subtotale</span><strong id="subtotale-valore">0,00</strong></div>
-      <div><span>Differenza</span><strong id="differenza-valore">0,00</strong></div>
-      <div><span>Totale</span><strong id="totale-valore">0,00</strong></div>
-    </div>
-    <div class="sconti-rapidi">
-      <button onclick="applicaSconto(-20)">-20%</button>
-      <button onclick="applicaSconto(-10)">-10%</button>
-      <button onclick="applicaSconto(-5)">-5%</button>
-      <button onclick="applicaSconto(5)">+5%</button>
-      <button onclick="applicaSconto(10)">+10%</button>
-      <button onclick="applicaSconto(20)">+20%</button>
-    </div>
-    <div class="tastierino-subtotale">
-      <button onclick="inserisciNumero(1)">1</button>
-      <button onclick="inserisciNumero(2)">2</button>
-      <button onclick="inserisciNumero(3)">3</button>
-      <button onclick="inserisciNumero(4)">4</button>
-      <button onclick="inserisciNumero(5)">5</button>
-      <button onclick="inserisciNumero(6)">6</button>
-      <button onclick="inserisciNumero(7)">7</button>
-      <button onclick="inserisciNumero(8)">8</button>
-      <button onclick="inserisciNumero(9)">9</button>
-      <button onclick="inserisciNumero(0)">0</button>
-      <button onclick="inserisciNumero(00)">00</button>
-      <button class="reset" onclick="resetInput()">C</button>
-    </div>
-    <button class="conferma-subtotale" onclick="confermaSubtotale()">Conferma</button>
-  </div>
+<div class="popup-subtotale" id="popup-subtotale">
+<div class="popup-content-subtotale">
+<h3>Subtotale ( € )</h3>
+<div class="totali-subtotale">
+<div><span>Subtotale</span><strong id="subtotale-valore">0,00</strong></div>
+<div><span>Differenza</span><strong id="differenza-valore">0,00</strong></div>
+<div><span>Totale</span><strong id="totale-valore">0,00</strong></div>
 </div>
-
-
+<div class="sconti-rapidi">
+<button onclick="applicaSconto(-20)">-20%</button>
+<button onclick="applicaSconto(-10)">-10%</button>
+<button onclick="applicaSconto(-5)">-5%</button>
+<button onclick="applicaSconto(5)">+5%</button>
+<button onclick="applicaSconto(10)">+10%</button>
+<button onclick="applicaSconto(20)">+20%</button>
+</div>
+<div class="tastierino-subtotale">
+<button onclick="inserisciNumero(1)">1</button>
+<button onclick="inserisciNumero(2)">2</button>
+<button onclick="inserisciNumero(3)">3</button>
+<button onclick="inserisciNumero(4)">4</button>
+<button onclick="inserisciNumero(5)">5</button>
+<button onclick="inserisciNumero(6)">6</button>
+<button onclick="inserisciNumero(7)">7</button>
+<button onclick="inserisciNumero(8)">8</button>
+<button onclick="inserisciNumero(9)">9</button>
+<button onclick="inserisciNumero(0)">0</button>
+<button onclick="inserisciNumero(00)">00</button>
+<button class="reset" onclick="resetInput()">C</button>
+</div>
+<button class="conferma-subtotale" onclick="confermaSubtotale()">Conferma</button>
+</div>
+</div>
 <script>
 function togglePopupSubtotale(show = true) {
     const popup = document.getElementById('popup-subtotale');
@@ -1737,8 +2221,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 });
 </script>
-
-
 <script>
 // Rimuove barratura e nuovo totale quando cambia il carrello
 function resetTotaleManuale() {
@@ -1759,101 +2241,74 @@ aggiornaOrdine = function() {
     aggiornaOrdineOriginal(); // esegue la funzione originale
 };
 </script>
-
-
 <div id="paginaTavoli" style="display:none; flex:1; flex-direction:column; padding:20px; overflow-y:auto;">
-  <h2 style="color:#007BFF; text-align:center;">Gestione Tavoli</h2>
-  
+<h2 style="color:#007BFF; text-align:center;">Gestione Tavoli</h2>
 <div id="conteggioTavoli" style="text-align:center; font-weight:600; margin-bottom:10px;">Tavoli visibili: 0/0</div>
-
 <div class="sezioni-tavoli" style="display: flex; gap: 10px; margin-bottom: 20px; justify-content: center;">
 </div>
-
-<div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(140px, 1fr)); gap: 48px; justify-items:center;">
-    <div class="tavolo" style="background:linear-gradient(135deg, #CFFCF3, #D9F0FF, #E9D9FF); border: 2px solid #7FE8CE; border-radius:16px; padding:15px; width:100%; max-width:140px; text-align:center; box-shadow:0 4px 12px rgba(0,0,0,0.1); transition:transform 0.2s;">
-      <h3>Tavolo 1</h3><p>€ 0,00</p><p style="color:#00b894; font-weight:bold;">Libero</p>
-    </div>
-    
-    <div class="tavolo" style="background:linear-gradient(135deg, #CFFCF3, #D9F0FF, #E9D9FF); border: 2px solid #7FE8CE; border-radius:16px; padding:15px; width:100%; max-width:140px; text-align:center; box-shadow:0 4px 12px rgba(0,0,0,0.1); transition:transform 0.2s;">
-      <h3>Tavolo 2</h3><p>€ 0,00</p><p style="color:#00b894; font-weight:bold;">Libero</p>
-    </div>
-    
-    <div class="tavolo" style="background:linear-gradient(135deg, #CFFCF3, #D9F0FF, #E9D9FF); border: 2px solid #7FE8CE; border-radius:16px; padding:15px; width:100%; max-width:140px; text-align:center; box-shadow:0 4px 12px rgba(0,0,0,0.1); transition:transform 0.2s;">
-      <h3>Tavolo 3</h3><p>€ 0,00</p><p style="color:#00b894; font-weight:bold;">Libero</p>
-    </div>
-    
-    <div class="tavolo" style="background:linear-gradient(135deg, #CFFCF3, #D9F0FF, #E9D9FF); border: 2px solid #7FE8CE; border-radius:16px; padding:15px; width:100%; max-width:140px; text-align:center; box-shadow:0 4px 12px rgba(0,0,0,0.1); transition:transform 0.2s;">
-      <h3>Tavolo 4</h3><p>€ 0,00</p><p style="color:#00b894; font-weight:bold;">Libero</p>
-    </div>
-    
-    <div class="tavolo" style="background:linear-gradient(135deg, #CFFCF3, #D9F0FF, #E9D9FF); border: 2px solid #7FE8CE; border-radius:16px; padding:15px; width:100%; max-width:140px; text-align:center; box-shadow:0 4px 12px rgba(0,0,0,0.1); transition:transform 0.2s;">
-      <h3>Tavolo 5</h3><p>€ 0,00</p><p style="color:#00b894; font-weight:bold;">Libero</p>
-    </div>
-    
-    <div class="tavolo" style="background:linear-gradient(135deg, #CFFCF3, #D9F0FF, #E9D9FF); border: 2px solid #7FE8CE; border-radius:16px; padding:15px; width:100%; max-width:140px; text-align:center; box-shadow:0 4px 12px rgba(0,0,0,0.1); transition:transform 0.2s;">
-      <h3>Tavolo 6</h3><p>€ 0,00</p><p style="color:#00b894; font-weight:bold;">Libero</p>
-    </div>
-    
-    <div class="tavolo" style="background:linear-gradient(135deg, #CFFCF3, #D9F0FF, #E9D9FF); border: 2px solid #7FE8CE; border-radius:16px; padding:15px; width:100%; max-width:140px; text-align:center; box-shadow:0 4px 12px rgba(0,0,0,0.1); transition:transform 0.2s;">
-      <h3>Tavolo 7</h3><p>€ 0,00</p><p style="color:#00b894; font-weight:bold;">Libero</p>
-    </div>
-    
-    <div class="tavolo" style="background:linear-gradient(135deg, #CFFCF3, #D9F0FF, #E9D9FF); border: 2px solid #7FE8CE; border-radius:16px; padding:15px; width:100%; max-width:140px; text-align:center; box-shadow:0 4px 12px rgba(0,0,0,0.1); transition:transform 0.2s;">
-      <h3>Tavolo 8</h3><p>€ 0,00</p><p style="color:#00b894; font-weight:bold;">Libero</p>
-    </div>
-    
-    <div class="tavolo" style="background:linear-gradient(135deg, #CFFCF3, #D9F0FF, #E9D9FF); border: 2px solid #7FE8CE; border-radius:16px; padding:15px; width:100%; max-width:140px; text-align:center; box-shadow:0 4px 12px rgba(0,0,0,0.1); transition:transform 0.2s;">
-      <h3>Tavolo 9</h3><p>€ 0,00</p><p style="color:#00b894; font-weight:bold;">Libero</p>
-    </div>
-    
-    <div class="tavolo" style="background:linear-gradient(135deg, #CFFCF3, #D9F0FF, #E9D9FF); border: 2px solid #7FE8CE; border-radius:16px; padding:15px; width:100%; max-width:140px; text-align:center; box-shadow:0 4px 12px rgba(0,0,0,0.1); transition:transform 0.2s;">
-      <h3>Tavolo 10</h3><p>€ 0,00</p><p style="color:#00b894; font-weight:bold;">Libero</p>
-    </div>
-    
-    <div class="tavolo" style="background:linear-gradient(135deg, #CFFCF3, #D9F0FF, #E9D9FF); border: 2px solid #7FE8CE; border-radius:16px; padding:15px; width:100%; max-width:140px; text-align:center; box-shadow:0 4px 12px rgba(0,0,0,0.1); transition:transform 0.2s;">
-      <h3>Tavolo 11</h3><p>€ 0,00</p><p style="color:#00b894; font-weight:bold;">Libero</p>
-    </div>
-    
-    <div class="tavolo" style="background:linear-gradient(135deg, #CFFCF3, #D9F0FF, #E9D9FF); border: 2px solid #7FE8CE; border-radius:16px; padding:15px; width:100%; max-width:140px; text-align:center; box-shadow:0 4px 12px rgba(0,0,0,0.1); transition:transform 0.2s;">
-      <h3>Tavolo 12</h3><p>€ 0,00</p><p style="color:#00b894; font-weight:bold;">Libero</p>
-    </div>
-    
-    <div class="tavolo" style="background:linear-gradient(135deg, #CFFCF3, #D9F0FF, #E9D9FF); border: 2px solid #7FE8CE; border-radius:16px; padding:15px; width:100%; max-width:140px; text-align:center; box-shadow:0 4px 12px rgba(0,0,0,0.1); transition:transform 0.2s;">
-      <h3>Tavolo 13</h3><p>€ 0,00</p><p style="color:#00b894; font-weight:bold;">Libero</p>
-    </div>
-    
-    <div class="tavolo" style="background:linear-gradient(135deg, #CFFCF3, #D9F0FF, #E9D9FF); border: 2px solid #7FE8CE; border-radius:16px; padding:15px; width:100%; max-width:140px; text-align:center; box-shadow:0 4px 12px rgba(0,0,0,0.1); transition:transform 0.2s;">
-      <h3>Tavolo 14</h3><p>€ 0,00</p><p style="color:#00b894; font-weight:bold;">Libero</p>
-    </div>
-    
-    <div class="tavolo" style="background:linear-gradient(135deg, #CFFCF3, #D9F0FF, #E9D9FF); border: 2px solid #7FE8CE; border-radius:16px; padding:15px; width:100%; max-width:140px; text-align:center; box-shadow:0 4px 12px rgba(0,0,0,0.1); transition:transform 0.2s;">
-      <h3>Tavolo 15</h3><p>€ 0,00</p><p style="color:#00b894; font-weight:bold;">Libero</p>
-    </div>
-    
-    <div class="tavolo" style="background:linear-gradient(135deg, #CFFCF3, #D9F0FF, #E9D9FF); border: 2px solid #7FE8CE; border-radius:16px; padding:15px; width:100%; max-width:140px; text-align:center; box-shadow:0 4px 12px rgba(0,0,0,0.1); transition:transform 0.2s;">
-      <h3>Tavolo 16</h3><p>€ 0,00</p><p style="color:#00b894; font-weight:bold;">Libero</p>
-    </div>
-    
-    <div class="tavolo" style="background:linear-gradient(135deg, #CFFCF3, #D9F0FF, #E9D9FF); border: 2px solid #7FE8CE; border-radius:16px; padding:15px; width:100%; max-width:140px; text-align:center; box-shadow:0 4px 12px rgba(0,0,0,0.1); transition:transform 0.2s;">
-      <h3>Tavolo 17</h3><p>€ 0,00</p><p style="color:#00b894; font-weight:bold;">Libero</p>
-    </div>
-    
-    <div class="tavolo" style="background:linear-gradient(135deg, #CFFCF3, #D9F0FF, #E9D9FF); border: 2px solid #7FE8CE; border-radius:16px; padding:15px; width:100%; max-width:140px; text-align:center; box-shadow:0 4px 12px rgba(0,0,0,0.1); transition:transform 0.2s;">
-      <h3>Tavolo 18</h3><p>€ 0,00</p><p style="color:#00b894; font-weight:bold;">Libero</p>
-    </div>
-    
-    <div class="tavolo" style="background:linear-gradient(135deg, #CFFCF3, #D9F0FF, #E9D9FF); border: 2px solid #7FE8CE; border-radius:16px; padding:15px; width:100%; max-width:140px; text-align:center; box-shadow:0 4px 12px rgba(0,0,0,0.1); transition:transform 0.2s;">
-      <h3>Tavolo 19</h3><p>€ 0,00</p><p style="color:#00b894; font-weight:bold;">Libero</p>
-    </div>
-    
-    <div class="tavolo" style="background:linear-gradient(135deg, #CFFCF3, #D9F0FF, #E9D9FF); border: 2px solid #7FE8CE; border-radius:16px; padding:15px; width:100%; max-width:140px; text-align:center; box-shadow:0 4px 12px rgba(0,0,0,0.1); transition:transform 0.2s;">
-      <h3>Tavolo 20</h3><p>€ 0,00</p><p style="color:#00b894; font-weight:bold;">Libero</p>
-    </div>
-    </div>
-  <button onclick="mostraPagina('content')" style="margin-top:20px; background:#ff4d4f; color:white; border:none; border-radius:8px; padding:10px 20px; font-size:16px; cursor:pointer;">Torna alla Vendita</button>
+<div class="tavoli-grid">
+<div class="tavolo" style="background:linear-gradient(135deg, #CFFCF3, #D9F0FF, #E9D9FF); border: 2px solid #7FE8CE; border-radius:16px; padding:15px; width:100%; max-width: none; text-align:center; box-shadow:0 4px 12px rgba(0,0,0,0.1); transition:transform 0.2s;">
+<h3>Tavolo 1</h3><p>€ 0,00</p><p style="color:#00b894; font-weight:bold;">Libero</p>
 </div>
-
-
+<div class="tavolo" style="background:linear-gradient(135deg, #CFFCF3, #D9F0FF, #E9D9FF); border: 2px solid #7FE8CE; border-radius:16px; padding:15px; width:100%; max-width: none; text-align:center; box-shadow:0 4px 12px rgba(0,0,0,0.1); transition:transform 0.2s;">
+<h3>Tavolo 2</h3><p>€ 0,00</p><p style="color:#00b894; font-weight:bold;">Libero</p>
+</div>
+<div class="tavolo" style="background:linear-gradient(135deg, #CFFCF3, #D9F0FF, #E9D9FF); border: 2px solid #7FE8CE; border-radius:16px; padding:15px; width:100%; max-width: none; text-align:center; box-shadow:0 4px 12px rgba(0,0,0,0.1); transition:transform 0.2s;">
+<h3>Tavolo 3</h3><p>€ 0,00</p><p style="color:#00b894; font-weight:bold;">Libero</p>
+</div>
+<div class="tavolo" style="background:linear-gradient(135deg, #CFFCF3, #D9F0FF, #E9D9FF); border: 2px solid #7FE8CE; border-radius:16px; padding:15px; width:100%; max-width: none; text-align:center; box-shadow:0 4px 12px rgba(0,0,0,0.1); transition:transform 0.2s;">
+<h3>Tavolo 4</h3><p>€ 0,00</p><p style="color:#00b894; font-weight:bold;">Libero</p>
+</div>
+<div class="tavolo" style="background:linear-gradient(135deg, #CFFCF3, #D9F0FF, #E9D9FF); border: 2px solid #7FE8CE; border-radius:16px; padding:15px; width:100%; max-width: none; text-align:center; box-shadow:0 4px 12px rgba(0,0,0,0.1); transition:transform 0.2s;">
+<h3>Tavolo 5</h3><p>€ 0,00</p><p style="color:#00b894; font-weight:bold;">Libero</p>
+</div>
+<div class="tavolo" style="background:linear-gradient(135deg, #CFFCF3, #D9F0FF, #E9D9FF); border: 2px solid #7FE8CE; border-radius:16px; padding:15px; width:100%; max-width: none; text-align:center; box-shadow:0 4px 12px rgba(0,0,0,0.1); transition:transform 0.2s;">
+<h3>Tavolo 6</h3><p>€ 0,00</p><p style="color:#00b894; font-weight:bold;">Libero</p>
+</div>
+<div class="tavolo" style="background:linear-gradient(135deg, #CFFCF3, #D9F0FF, #E9D9FF); border: 2px solid #7FE8CE; border-radius:16px; padding:15px; width:100%; max-width: none; text-align:center; box-shadow:0 4px 12px rgba(0,0,0,0.1); transition:transform 0.2s;">
+<h3>Tavolo 7</h3><p>€ 0,00</p><p style="color:#00b894; font-weight:bold;">Libero</p>
+</div>
+<div class="tavolo" style="background:linear-gradient(135deg, #CFFCF3, #D9F0FF, #E9D9FF); border: 2px solid #7FE8CE; border-radius:16px; padding:15px; width:100%; max-width: none; text-align:center; box-shadow:0 4px 12px rgba(0,0,0,0.1); transition:transform 0.2s;">
+<h3>Tavolo 8</h3><p>€ 0,00</p><p style="color:#00b894; font-weight:bold;">Libero</p>
+</div>
+<div class="tavolo" style="background:linear-gradient(135deg, #CFFCF3, #D9F0FF, #E9D9FF); border: 2px solid #7FE8CE; border-radius:16px; padding:15px; width:100%; max-width: none; text-align:center; box-shadow:0 4px 12px rgba(0,0,0,0.1); transition:transform 0.2s;">
+<h3>Tavolo 9</h3><p>€ 0,00</p><p style="color:#00b894; font-weight:bold;">Libero</p>
+</div>
+<div class="tavolo" style="background:linear-gradient(135deg, #CFFCF3, #D9F0FF, #E9D9FF); border: 2px solid #7FE8CE; border-radius:16px; padding:15px; width:100%; max-width: none; text-align:center; box-shadow:0 4px 12px rgba(0,0,0,0.1); transition:transform 0.2s;">
+<h3>Tavolo 10</h3><p>€ 0,00</p><p style="color:#00b894; font-weight:bold;">Libero</p>
+</div>
+<div class="tavolo" style="background:linear-gradient(135deg, #CFFCF3, #D9F0FF, #E9D9FF); border: 2px solid #7FE8CE; border-radius:16px; padding:15px; width:100%; max-width: none; text-align:center; box-shadow:0 4px 12px rgba(0,0,0,0.1); transition:transform 0.2s;">
+<h3>Tavolo 11</h3><p>€ 0,00</p><p style="color:#00b894; font-weight:bold;">Libero</p>
+</div>
+<div class="tavolo" style="background:linear-gradient(135deg, #CFFCF3, #D9F0FF, #E9D9FF); border: 2px solid #7FE8CE; border-radius:16px; padding:15px; width:100%; max-width: none; text-align:center; box-shadow:0 4px 12px rgba(0,0,0,0.1); transition:transform 0.2s;">
+<h3>Tavolo 12</h3><p>€ 0,00</p><p style="color:#00b894; font-weight:bold;">Libero</p>
+</div>
+<div class="tavolo" style="background:linear-gradient(135deg, #CFFCF3, #D9F0FF, #E9D9FF); border: 2px solid #7FE8CE; border-radius:16px; padding:15px; width:100%; max-width: none; text-align:center; box-shadow:0 4px 12px rgba(0,0,0,0.1); transition:transform 0.2s;">
+<h3>Tavolo 13</h3><p>€ 0,00</p><p style="color:#00b894; font-weight:bold;">Libero</p>
+</div>
+<div class="tavolo" style="background:linear-gradient(135deg, #CFFCF3, #D9F0FF, #E9D9FF); border: 2px solid #7FE8CE; border-radius:16px; padding:15px; width:100%; max-width: none; text-align:center; box-shadow:0 4px 12px rgba(0,0,0,0.1); transition:transform 0.2s;">
+<h3>Tavolo 14</h3><p>€ 0,00</p><p style="color:#00b894; font-weight:bold;">Libero</p>
+</div>
+<div class="tavolo" style="background:linear-gradient(135deg, #CFFCF3, #D9F0FF, #E9D9FF); border: 2px solid #7FE8CE; border-radius:16px; padding:15px; width:100%; max-width: none; text-align:center; box-shadow:0 4px 12px rgba(0,0,0,0.1); transition:transform 0.2s;">
+<h3>Tavolo 15</h3><p>€ 0,00</p><p style="color:#00b894; font-weight:bold;">Libero</p>
+</div>
+<div class="tavolo" style="background:linear-gradient(135deg, #CFFCF3, #D9F0FF, #E9D9FF); border: 2px solid #7FE8CE; border-radius:16px; padding:15px; width:100%; max-width: none; text-align:center; box-shadow:0 4px 12px rgba(0,0,0,0.1); transition:transform 0.2s;">
+<h3>Tavolo 16</h3><p>€ 0,00</p><p style="color:#00b894; font-weight:bold;">Libero</p>
+</div>
+<div class="tavolo" style="background:linear-gradient(135deg, #CFFCF3, #D9F0FF, #E9D9FF); border: 2px solid #7FE8CE; border-radius:16px; padding:15px; width:100%; max-width: none; text-align:center; box-shadow:0 4px 12px rgba(0,0,0,0.1); transition:transform 0.2s;">
+<h3>Tavolo 17</h3><p>€ 0,00</p><p style="color:#00b894; font-weight:bold;">Libero</p>
+</div>
+<div class="tavolo" style="background:linear-gradient(135deg, #CFFCF3, #D9F0FF, #E9D9FF); border: 2px solid #7FE8CE; border-radius:16px; padding:15px; width:100%; max-width: none; text-align:center; box-shadow:0 4px 12px rgba(0,0,0,0.1); transition:transform 0.2s;">
+<h3>Tavolo 18</h3><p>€ 0,00</p><p style="color:#00b894; font-weight:bold;">Libero</p>
+</div>
+<div class="tavolo" style="background:linear-gradient(135deg, #CFFCF3, #D9F0FF, #E9D9FF); border: 2px solid #7FE8CE; border-radius:16px; padding:15px; width:100%; max-width: none; text-align:center; box-shadow:0 4px 12px rgba(0,0,0,0.1); transition:transform 0.2s;">
+<h3>Tavolo 19</h3><p>€ 0,00</p><p style="color:#00b894; font-weight:bold;">Libero</p>
+</div>
+<div class="tavolo" style="background:linear-gradient(135deg, #CFFCF3, #D9F0FF, #E9D9FF); border: 2px solid #7FE8CE; border-radius:16px; padding:15px; width:100%; max-width: none; text-align:center; box-shadow:0 4px 12px rgba(0,0,0,0.1); transition:transform 0.2s;">
+<h3>Tavolo 20</h3><p>€ 0,00</p><p style="color:#00b894; font-weight:bold;">Libero</p>
+</div>
+</div>
+</div>
 <script>
 document.getElementById('btnTavoli').addEventListener('click', function() {
     mostraPagina('paginaTavoli');
@@ -1872,8 +2327,6 @@ function mostraPagina(id) {
     }
 }
 </script>
-
-
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const btnHome = document.getElementById('btnHome');
@@ -1888,7 +2341,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 </script>
-
 <script>
 document.querySelectorAll('.btn-sezione-tavoli').forEach(button => {
     button.addEventListener('click', () => {
@@ -1905,8 +2357,6 @@ document.querySelectorAll('.btn-sezione-tavoli').forEach(button => {
     });
 });
 </script>
-
-
 <script>
 function aggiornaConteggio() {
     const visibili = document.querySelectorAll('.tavolo[style*="block"]').length;
@@ -1935,18 +2385,14 @@ document.querySelectorAll('.btn-sezione-tavoli').forEach(button => {
 // Aggiorna conteggio iniziale
 aggiornaConteggio();
 </script>
-
-
 <div id="popupTavolo">
-    <div id="popupTavoloContent">
-        <h3 id="popupTavoloTitolo">Tavolo</h3>
-        <p>Nessun ordine ancora associato.</p>
-        <button onclick="vaiAllaVendita()">AGGIUNGI PRODOTTI</button><br><br>
-        <button onclick="chiudiPopupTavolo()" style="background:#ccc; color:#000;">Chiudi</button>
-    </div>
+<div id="popupTavoloContent">
+<h3 id="popupTavoloTitolo">Tavolo</h3>
+<p>Nessun ordine ancora associato.</p>
+<button onclick="vaiAllaVendita()">AGGIUNGI PRODOTTI</button><br/><br/>
+<button onclick="chiudiPopupTavolo()" style="background:#ccc; color:#000;">Chiudi</button>
 </div>
-
-
+</div>
 <script>
 
 function chiudiPopupTavolo() {
@@ -1959,9 +2405,7 @@ function vaiAllaVendita() {
     mostraPagina('content');
 }
 </script>
-
 <button id="btnAggiungiAlTavolo" onclick="aggiungiAlTavolo()">AGGIUNGI AL TAVOLO</button>
-
 <script>
 let tavoloSelezionato = null;
 let ordiniTavoli = {};
@@ -2038,46 +2482,40 @@ function aggiungiAlTavolo() {
     document.getElementById('btnAggiungiAlTavolo').style.display = 'none';
 }
 </script>
-
-
 <div id="paginaStatistiche" style="display:none; padding:0; margin:0; width:100vw; min-height:100vh; overflow-y:auto;">
-  <h2 style="text-align: center; font-size: 28px; font-weight: 700; color: #007BFF;">Statistiche Ordini</h2>
-
-  <div style="background: white; border-radius: 16px; padding: 20px; margin: 20px auto; max-width: 1000px; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
-    <div style="display: flex; justify-content: space-between; align-items: center;">
-      <h3>Ultime 24 ore</h3>
-      <select id="filtroPeriodo" style="padding: 8px; border-radius: 8px; border: 1px solid #ddd;">
-        <option value="1">1 giorno</option>
-        <option value="7" selected>1 settimana</option>
-        <option value="30">1 mese</option>
-        <option value="90">3 mesi</option>
-      </select>
-    </div>
-    <canvas id="grafico24h" style="margin-top: 20px;"></canvas>
-  </div>
-
-  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; max-width: 1000px; margin: 0 auto 50px auto;">
-    <div style="background: white; border-radius: 16px; padding: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
-      <h4>Prodotti più venduti</h4>
-      <canvas id="prodottiTop"></canvas>
-    </div>
-    <div style="background: white; border-radius: 16px; padding: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
-      <h4>Prodotti con più ordini</h4>
-      <canvas id="ordiniTop"></canvas>
-    </div>
-    <div style="background: white; border-radius: 16px; padding: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
-      <h4>Categorie più vendute</h4>
-      <canvas id="categorieTop"></canvas>
-    </div>
-    <div style="background: white; border-radius: 16px; padding: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
-      <h4>Più aggiunti al carrello</h4>
-      <canvas id="aggiuntiCarrello"></canvas>
-    </div>
-  </div>
+<h2 style="text-align: center; font-size: 28px; font-weight: 700; color: #007BFF;">Statistiche Ordini</h2>
+<div style="background: white; border-radius: 16px; padding: 20px; margin: 20px auto; max-width: 1000px; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
+<div style="display: flex; justify-content: space-between; align-items: center;">
+<h3>Ultime 24 ore</h3>
+<select id="filtroPeriodo" style="padding: 8px; border-radius: 8px; border: 1px solid #ddd;">
+<option value="1">1 giorno</option>
+<option selected="" value="7">1 settimana</option>
+<option value="30">1 mese</option>
+<option value="90">3 mesi</option>
+</select>
 </div>
-
+<canvas id="grafico24h" style="margin-top: 20px;"></canvas>
+</div>
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; max-width: 1000px; margin: 0 auto 50px auto;">
+<div style="background: white; border-radius: 16px; padding: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
+<h4>Prodotti più venduti</h4>
+<canvas id="prodottiTop"></canvas>
+</div>
+<div style="background: white; border-radius: 16px; padding: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
+<h4>Prodotti con più ordini</h4>
+<canvas id="ordiniTop"></canvas>
+</div>
+<div style="background: white; border-radius: 16px; padding: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
+<h4>Categorie più vendute</h4>
+<canvas id="categorieTop"></canvas>
+</div>
+<div style="background: white; border-radius: 16px; padding: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
+<h4>Più aggiunti al carrello</h4>
+<canvas id="aggiuntiCarrello"></canvas>
+</div>
+</div>
+</div>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
 <script>
 document.getElementById('btnStatistiche').addEventListener('click', () => {
   document.querySelector('.content').style.display = 'none';
@@ -2132,32 +2570,26 @@ function caricaGraficoBar(id, label, labels, data) {
   });
 }
 </script>
-
-
 <div id="paginaStatistiche" style="display:none; padding:0; margin:0; width:100vw; min-height:100vh; overflow-y:auto;">
-  <h2 style="text-align: center; font-size: 28px; font-weight: 700; color: #007BFF;">Statistiche Gestione Locale</h2>
-
-  <div style="display: flex; justify-content: center; gap: 20px; margin: 20px 0; flex-wrap: wrap;">
-    <div class="stat-card" style="flex: 1 1 250px; margin: 10px;"><h4>Incasso Totale</h4><p id="incassoTotale">€ 0</p></div>
-    <div class="stat-card" style="flex: 1 1 250px; margin: 10px;"><h4>Numero Ordini</h4><p id="numeroOrdini">0</p></div>
-    <div class="stat-card" style="flex: 1 1 250px; margin: 10px;"><h4>Ticket Medio</h4><p id="ticketMedio">€ 0</p></div>
-  </div>
-
-  <div style="margin: 20px 0; background: white; padding: 20px; border-radius: 16px; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
-    <h3>Andamento Ordini (Ultima Settimana)</h3>
-    <canvas id="graficoAndamento"></canvas>
-  </div>
-
-  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-bottom: 50px;">
-    <div class="stat-box"><h4>Top 5 Prodotti più venduti</h4><canvas id="graficoTopProdotti"></canvas></div>
-    <div class="stat-box"><h4>Top 5 Prodotti con più ordini</h4><canvas id="graficoTopOrdini"></canvas></div>
-    <div class="stat-box"><h4>Top 5 Categorie più vendute</h4><canvas id="graficoTopCategorie"></canvas></div>
-    <div class="stat-box"><h4>Orari di punta</h4><canvas id="graficoOrari"></canvas></div>
-    <div class="stat-box"><h4>Più aggiunti al carrello</h4><canvas id="graficoAggiuntiCarrello"></canvas></div>
-    <div class="stat-box"><h4>Più rimossi dal carrello</h4><canvas id="graficoRimossiCarrello"></canvas></div>
-  </div>
+<h2 style="text-align: center; font-size: 28px; font-weight: 700; color: #007BFF;">Statistiche Gestione Locale</h2>
+<div style="display: flex; justify-content: center; gap: 20px; margin: 20px 0; flex-wrap: wrap;">
+<div class="stat-card" style="flex: 1 1 250px; margin: 10px;"><h4>Incasso Totale</h4><p id="incassoTotale">€ 0</p></div>
+<div class="stat-card" style="flex: 1 1 250px; margin: 10px;"><h4>Numero Ordini</h4><p id="numeroOrdini">0</p></div>
+<div class="stat-card" style="flex: 1 1 250px; margin: 10px;"><h4>Ticket Medio</h4><p id="ticketMedio">€ 0</p></div>
 </div>
-
+<div style="margin: 20px 0; background: white; padding: 20px; border-radius: 16px; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
+<h3>Andamento Ordini (Ultima Settimana)</h3>
+<canvas id="graficoAndamento"></canvas>
+</div>
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-bottom: 50px;">
+<div class="stat-box"><h4>Top 5 Prodotti più venduti</h4><canvas id="graficoTopProdotti"></canvas></div>
+<div class="stat-box"><h4>Top 5 Prodotti con più ordini</h4><canvas id="graficoTopOrdini"></canvas></div>
+<div class="stat-box"><h4>Top 5 Categorie più vendute</h4><canvas id="graficoTopCategorie"></canvas></div>
+<div class="stat-box"><h4>Orari di punta</h4><canvas id="graficoOrari"></canvas></div>
+<div class="stat-box"><h4>Più aggiunti al carrello</h4><canvas id="graficoAggiuntiCarrello"></canvas></div>
+<div class="stat-box"><h4>Più rimossi dal carrello</h4><canvas id="graficoRimossiCarrello"></canvas></div>
+</div>
+</div>
 <script>
  document.getElementById('btnStatistiche').addEventListener('click', () => {
   document.querySelector('.content').style.display = 'none';
@@ -2249,8 +2681,7 @@ function aggiornaGrafici(stats) {
   
   window.caricaStatistiche = caricaStatistiche;
   </script>
-  
-  <script type="module">
+<script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
     import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
     
@@ -2317,6 +2748,1063 @@ function aggiornaGrafici(stats) {
     
     window.caricaStatistiche = caricaStatistiche;
     </script>
-    
+<script>
+// === NAV: Home <-> Tavoli ===
+(function(){
+  const content = document.querySelector('.content');
+  const paginaTavoli = document.getElementById('paginaTavoli');
+  function mostraHome(){
+    if (content) content.style.display = 'flex';
+    if (paginaTavoli) paginaTavoli.style.display = 'none';
+    const side = document.querySelector('.riepilogo-order');
+    if (side) side.style.display = 'block';
+}
+  function mostraTavoli(){
+    if (content) content.style.display = 'none';
+    if (paginaTavoli) paginaTavoli.style.display = 'block';
+    // Se il bottone TUTTI è presente e attivo, carico tutti
+    if (typeof caricaTuttiTavoli === 'function') caricaTuttiTavoli();
+  
+  ensureBackButton();
+}
+  window.mostraHome = mostraHome;
+  window.mostraTavoli = mostraTavoli;
+  document.getElementById('btnHome')?.addEventListener('click', mostraHome);
+  document.getElementById('btnTavoli')?.addEventListener('click', mostraTavoli);
+  // Vista iniziale: Home
+  mostraHome();
+})();
+</script>
+<script>
+function ensureBackButton(){
+  const page = document.getElementById('paginaTavoli');
+  if(!page) return;
+  if(!document.getElementById('btnBackVendita')){
+    const wrap = document.createElement('div');
+    wrap.className = 'tavoli-actions';
+    const btn = document.createElement('button');
+    btn.id = 'btnBackVendita';
+    btn.className = 'btn-back-vendita';
+    btn.textContent = 'Torna alla Vendita';
+    btn.addEventListener('click', ()=>{ if (typeof mostraPagina==='function') { mostraPagina('content'); } else if (typeof mostraHome==='function') { mostraHome(); } else { document.querySelector('.content').style.display='block'; document.querySelector('.riepilogo-order').style.display='block'; document.getElementById('paginaTavoli').style.display='none'; } });
+    wrap.appendChild(btn);
+    page.appendChild(wrap);
+  }
+}
+</script>
+<!-- === POPUP ORDINI TAVOLO === -->
+<div aria-label="Ordini tavolo" aria-modal="true" id="popup-ordini-tavolo" role="dialog">
+<div class="box">
+<div class="header">
+<h3 id="titolo-popup-tavolo">Ordini • Tavolo</h3>
+<button class="close" onclick="chiudiPopupOrdiniTavolo()">Chiudi</button>
+</div>
+<div class="content" id="lista-ordini-tavolo">
+<!-- Righe prodotti tavolo qui -->
+</div>
+<div class="footer">
+<div class="totale">Totale: <span id="totale-ordini-tavolo">€ 0,00</span></div>
+<div class="azioni">
+<button class="chiudi" onclick="vaiAdAggiungereProdotti()">Aggiungi prodotti</button>
+<button class="vai-a-pagamento" onclick="vaiAPagamentoDaTavolo()">Vai al pagamento</button>
+</div>
+</div>
+</div>
+</div>
+<script>
+// === Gestione Popup Ordini Tavolo ===
+window._zappyTavoloCorrente = null; // { salaId, tavoloId, nome }
+
+function formatEuro(v) {
+  try { return '€ ' + (v||0).toFixed(2).replace('.', ','); } catch(e){ return '€ 0,00'; }
+}
+
+async function fetchProdottiTavolo(salaId, tavoloId, nomeTavolo) {
+  // 🔌 TENTATIVO FIRESTORE (adatta al tuo schema)
+  // 1) prova: locali/zappydemo/sale/{salaId}/tavoli/{tavoloId}/ordini (collezione)
+  // 2) fallback: locali/zappydemo/ordini (collezione con campo tavoloNome == nomeTavolo e stato == 'aperto')
+  // 3) ultimo fallback: ritorna array vuoto
+  try {
+    const { getFirestore, collection, getDocs, query, where } = await import("https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js");
+    const db = getFirestore();
+
+    // Tentativo 1
+    try {
+      const ref1 = collection(db, "locali", "zappydemo", "sale", salaId, "tavoli", tavoloId, "ordini");
+      const snap1 = await getDocs(ref1);
+      if (!snap1.empty) {
+        let items = [];
+        snap1.forEach(doc => {
+          const d = doc.data() || {};
+          (d.prodotti || []).forEach(p => items.push(p)); // ci aspettiamo {nome, quantita, prezzo}
+        });
+        if (items.length) return items;
+      }
+    } catch(_) {}
+
+    // Tentativo 2
+    try {
+      const ref2 = collection(db, "locali", "zappydemo", "ordini");
+      // Nota: se non hai indici, toglilo/semplifica
+      const q2 = query(ref2, where("tavoloNome", "==", nomeTavolo), where("stato", "in", ["aperto","in_corso"]));
+      const snap2 = await getDocs(q2);
+      if (!snap2.empty) {
+        let items = [];
+        snap2.forEach(doc => {
+          const d = doc.data() || {};
+          (d.prodotti || []).forEach(p => items.push(p));
+        });
+        if (items.length) return items;
+      }
+    } catch(_) {}
+
+  } catch (err) {
+    console.warn("fetchProdottiTavolo Firestore non disponibile:", err);
+  }
+
+  // Fallback di esempio (mostra un placeholder se non troviamo nulla)
+  return [];
+}
+
+async function apriPopupOrdiniTavolo({ salaId, tavoloId, nome }) {
+  window._zappyTavoloCorrente = { salaId, tavoloId, nome };
+  document.getElementById('titolo-popup-tavolo').textContent = 'Ordini • ' + (nome || 'Tavolo');
+
+  const contenitore = document.getElementById('lista-ordini-tavolo');
+  contenitore.innerHTML = '<div style=\"padding:14px;color:#666;\">Caricamento…</div>';
+
+  const items = await fetchProdottiTavolo(salaId, tavoloId, nome);
+  contenitore.innerHTML = '';
+
+  let totale = 0;
+  if (items.length === 0) {
+    contenitore.innerHTML = '<div style=\"padding:14px;color:#666;\">Nessun ordine per questo tavolo.</div>';
+  } else {
+    items.forEach(p => {
+      const q = Number(p.quantita || p.qty || 1);
+      const prezzo = Number(p.prezzo || p.price || 0);
+      totale += q * prezzo;
+
+      const riga = document.createElement('div');
+      riga.className = 'riga';
+      riga.innerHTML = `
+        <div class="nome">${p.nome || p.name || 'Prodotto'}</div>
+        <div class="qty">x${q}</div>
+        <div class="prezzo">${formatEuro(q * prezzo)}</div>
+      `;
+      contenitore.appendChild(riga);
+    });
+  }
+
+  document.getElementById('totale-ordini-tavolo').textContent = formatEuro(totale);
+  document.getElementById('popup-ordini-tavolo').style.display = 'flex';
+}
+
+function chiudiPopupOrdiniTavolo() {
+  document.getElementById('popup-ordini-tavolo').style.display = 'none';
+}
+
+function vaiAPagamentoDaTavolo() {
+  // Qui puoi navigare alla tua vista pagamento o aprire già il popup pagamento esistente
+  try {
+    chiudiPopupOrdiniTavolo();
+    const btn = document.querySelector('.pagamento');
+    if (btn) btn.click();
+  } catch(_) {}
+}
+</script>
+<button id="btn-aggiungi-al-tavolo" onclick="aggiungiCarrelloAlTavolo()">Aggiungi al tavolo</button>
+<script>
+// === Flusso "Aggiungi prodotti" e "Aggiungi al tavolo" ===
+function vaiAdAggiungereProdotti() {
+  // salviamo destinazione e torniamo alla vista prodotti
+  const dest = window._zappyTavoloCorrente;
+  if (!dest) return chiudiPopupOrdiniTavolo();
+  window._zappyDestinazioneTavolo = dest;
+  window.tavoloCorrente = dest;
+  try{ sessionStorage.setItem('zappy_tavolo_corrente', JSON.stringify(dest)); }catch(_){}
+  chiudiPopupOrdiniTavolo();
+  try {
+    // torna alla home prodotti (stesso comportamento di "Torna alla Vendita")
+    const b = document.querySelector('button, a, .btn, .button');
+    // Se esiste un tuo pulsante specifico 'Torna alla Vendita', prova a cliccarlo
+    const backBtn = Array.from(document.querySelectorAll('button, a')).find(el => /torna alla vendita/i.test(el.textContent || ''));
+    (backBtn || b)?.click();
+  } catch (_) {}
+  aggiornaBottoneAggiungiAlTavolo();
+}
+
+function aggiornaBottoneAggiungiAlTavolo() {
+  const btn = document.getElementById('btn-aggiungi-al-tavolo');
+  if (!btn) return;
+  btn.style.display = window._zappyDestinazioneTavolo ? 'inline-flex' : 'none';
+  if (window._zappyDestinazioneTavolo) {
+    btn.textContent = 'Aggiungi al tavolo • ' + (window._zappyDestinazioneTavolo.nome || '');
+  }
+}
+// chiama l'aggiornamento al load
+window.addEventListener('load', aggiornaBottoneAggiungiAlTavolo);
+
+// Prova a leggere gli item del carrello da vari punti noti
+function getCartItemsForZappy() {
+  // 1) Oggetto globale carrello
+  if (window.carrello && Array.isArray(window.carrello.items)) return window.carrello.items;
+  if (Array.isArray(window.carrelloItems)) return window.carrelloItems;
+  if (window.ZAPPY_CART && Array.isArray(window.ZAPPY_CART.items)) return window.ZAPPY_CART.items;
+  // 2) LocalStorage fallback
+  try {
+    const s = localStorage.getItem('zappy_cart');
+    if (s) {
+      const j = JSON.parse(s);
+      if (Array.isArray(j.items)) return j.items;
+    }
+  } catch(_) {}
+  return [];
+}
+
+async function aggiungiCarrelloAlTavolo() {
+  const dest = window._zappyDestinazioneTavolo;
+  if (!dest) return;
+  const items = getCartItemsForZappy();
+  if (!items.length) {
+    alert('Il carrello è vuoto.');
+    return;
+  }
+
+  // Scrittura su Firestore
+  try {
+    const { getFirestore, collection, addDoc, setDoc, doc, serverTimestamp } = await import("https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js");
+    const db = getFirestore();
+
+    // Strategia: creare (o aggiornare) un ordine "aperto" per il tavolo
+    // Path preferito: locali/zappydemo/sale/{salaId}/tavoli/{tavoloId}/ordini
+    const base = collection(db, "locali", "zappydemo", "sale", dest.salaId || "sala1", "tavoli", dest.tavoloId || "t1", "ordini");
+    const ordineDoc = doc(base); // nuovo doc per semplicità
+    const puliti = items.map(p => ({
+      nome: p.nome || p.name || 'Prodotto',
+      quantita: Number(p.quantita || p.qty || 1),
+      prezzo: Number(p.prezzo || p.price || 0),
+      note: p.note || ''
+    }));
+
+    await setDoc(ordineDoc, {
+      tavoloNome: dest.nome || '',
+      stato: 'aperto',
+      creatoIl: serverTimestamp(),
+      prodotti: puliti
+    });
+
+    // UI feedback
+    window._zappyDestinazioneTavolo = null;
+    aggiornaBottoneAggiungiAlTavolo();
+    alert('Prodotti aggiunti a ' + (dest.nome || 'tavolo') + '!');
+
+  } catch (err) {
+    console.error('Errore scrittura ordini tavolo:', err);
+    alert('Non sono riuscito ad aggiungere i prodotti. Controlla la connessione a Firebase.');
+  }
+}
+
+// Se l'utente cambia pagina/vista senza usare il bottone, prova a tenere visibile lo stato
+document.addEventListener('click', (e) => {
+  // ogni click ricalcola la visibilità, utile quando torni alla schermata prodotti
+  setTimeout(aggiornaBottoneAggiungiAlTavolo, 50);
+});
+</script>
+<script>
+// === ZAPPY: Modalità "aggiunta prodotti a un tavolo" ===
+window.modalitaTavolo = false;
+window.tavoloCorrente = null;
+
+// Mostra/Nasconde il bottone in sidebar in base alla modalità
+function aggiornaBottoneAggiungiAlTavolo(){
+  const btn = document.getElementById('btnAggAlTavoloSidebar');
+  if(!btn) return;
+  // Visibile solo se in modalitaTavolo e SOLO nella pagina prodotti (cioè quando la sidebar carrello è visibile)
+  btn.style.display = (window.modalitaTavolo === true) ? 'block' : 'none';
+}
+
+// Entra in modalità tavolo (da popup tavolo -> "Aggiungi prodotti")
+window.entraModalitaTavolo = function(info){
+  window.modalitaTavolo = true;
+  window.tavoloCorrente = info || window.tavoloCorrente || null;
+  // Chiudi eventuale popup tavolo
+  const pop = document.getElementById('popup-ordini-tavolo') || document.getElementById('popupTavolo');
+  if(pop) pop.style.display = 'none';
+  // Vai alla pagina prodotti se esiste un pulsante Home
+  const btnHome = document.getElementById('btnHome');
+  if(btnHome) btnHome.click();
+  aggiornaBottoneAggiungiAlTavolo();
+};
+
+// Esce dalla modalità tavolo (quando vai ai tavoli o inizi una vendita diretta)
+window.esciModalitaTavolo = function(){
+  window.modalitaTavolo = false;
+  window.tavoloCorrente = null;
+  aggiornaBottoneAggiungiAlTavolo();
+};
+
+// Tasti laterali: Home (prodotti) e Tavoli
+document.addEventListener('DOMContentLoaded', function(){
+  const btnHome = document.getElementById('btnHome');
+  const btnTavoli = document.getElementById('btnTavoli');
+
+  if(btnHome){
+    // Se l'utente clicca Home manualmente, non è più "da tavolo"
+    btnHome.addEventListener('click', () => {
+      // Manteniamo la modalità solo se esplicitamente entrata da tavolo
+      if(window.modalitaTavolo !== true){
+        esciModalitaTavolo();
+      } else {
+        aggiornaBottoneAggiungiAlTavolo();
+      }
+    });
+  }
+  if(btnTavoli){
+    btnTavoli.addEventListener('click', () => {
+      esciModalitaTavolo();
+    });
+  }
+
+  // Intercetta click sul bottone "Aggiungi prodotti" nel popup dei tavoli
+  document.body.addEventListener('click', (e) => {
+    const t = e.target;
+    const txt = (t.textContent || '').trim().toLowerCase();
+    const insidePopup = t.closest('#popup-ordini-tavolo, #popupTavolo');
+    // Match ampio su testo, ID o classi comuni
+    if( insidePopup && (
+          txt === 'aggiungi prodotti' ||
+          txt.includes('aggiungi prodotti') ||
+          t.id === 'btn-aggiungi-prodotti' ||
+          t.classList.contains('aggiungi-prodotti') ||
+          t.classList.contains('vai-a-prodotti')
+        )){
+      // Prova a recuperare info tavolo dal popup se disponibili come data-*
+      let info = null;
+      const box = t.closest('#popup-ordini-tavolo, #popupTavolo');
+      if(box){
+        info = {
+          salaId: box.getAttribute('data-sala-id') || null,
+          tavoloId: box.getAttribute('data-tavolo-id') || null,
+          nome: box.getAttribute('data-tavolo-nome') || null
+        };
+      }
+      entraModalitaTavolo(info);
+    }
+  });
+
+  // Click sul bottone in sidebar: conferma aggiunta prodotti al tavolo
+  const btnAgg = document.getElementById('btnAggAlTavoloSidebar');
+  if(btnAgg){
+    btnAgg.addEventListener('click', () => {
+      if(!window.modalitaTavolo || !window.tavoloCorrente){
+        // fallback: niente tavolo selezionato
+        alert('Seleziona prima un tavolo.');
+        return;
+      }
+      // TODO: salva carrello su Firestore dentro ordine del tavoloCorrente.
+      // Qui lasciamo il punto di integrazione per lo sviluppatore.
+      console.log('Aggiungo prodotti al tavolo:', window.tavoloCorrente);
+      // Uscita dalla modalità dopo l’invio
+      esciModalitaTavolo();
+    });
+  }
+
+  // All'avvio: se l'hash contiene fromTable abilita modalità
+  if(location.hash && location.hash.starts_with('#fromTable')){
+    try{
+      const payload = decodeURIComponent(location.hash.split(':',1)[0]);
+      // Non parsare complesso: basta abilitare la modalità
+      window.modalitaTavolo = true;
+    }catch(e){}
+  }
+  aggiornaBottoneAggiungiAlTavolo();
+});
+</script>
+<script>
+// === ZAPPY: Salvataggio carrello su Firestore e ritorno ai Tavoli ===
+async function zappySalvaCarrelloSuTavolo() {
+  try {
+    const info = window.tavoloCorrente;
+    if (!info || !info.salaId || !info.tavoloId) {
+      alert('Tavolo non valido.');
+      return false;
+    }
+    const items = (window.carrello || []).map(p => ({
+      nome: p.nome || '',
+      prezzo: p.prezzo || 0,
+      quantita: p.quantita || 1,
+      immagine: p.immagine || null
+    }));
+
+    // Percorso doc ordine singolo
+    const ordineRef = doc(getFirestore(), "locali", "zappydemo", "sale", info.salaId, "tavoli", info.tavoloId, "ordine");
+    const snap = await getDoc(ordineRef);
+    let esistenti = [];
+    if (snap.exists()) {
+      const d = snap.data() || {};
+      esistenti = Array.isArray(d.items) ? d.items : [];
+    }
+
+    // Merge per nome+prezzo
+    const mappa = new Map();
+    for (const it of esistenti) {
+      const key = `${it.nome}__${it.prezzo}`;
+      mappa.set(key, { ...it });
+    }
+    for (const it of items) {
+      const key = `${it.nome}__${it.prezzo}`;
+      if (mappa.has(key)) {
+        const cur = mappa.get(key);
+        cur.quantita = (cur.quantita || 0) + (it.quantita || 0);
+        mappa.set(key, cur);
+      } else {
+        mappa.set(key, { ...it });
+      }
+    }
+    const merged = Array.from(mappa.values());
+
+    await setDoc(ordineRef, {
+      items: merged,
+      totale: (merged||[]).reduce((s,it)=>s + (Number(it.prezzo||0)*(Number(it.quantita||1))),0),
+      source: "tablet",
+      stato: "APERTO",
+      
+      totale: (merged||[]).reduce((s,it)=>s + (Number(it.prezzo||0)*(Number(it.quantita||1))),0),
+      source: "tablet",
+      stato: "APERTO",
+      
+      updatedAt: new Date().toISOString(),
+      tavoloNome: info.nome || null
+    }, { merge: true });
+
+    return true;
+  } catch (err) {
+    console.error('Errore salvataggio ordine tavolo:', err);
+    alert('Errore durante il salvataggio sul tavolo.');
+    return false;
+  }
+}
+
+document.addEventListener('DOMContentLoaded', function(){
+  const btnAgg = document.getElementById('btnAggAlTavoloSidebar');
+  if(btnAgg){
+    btnAgg.addEventListener('click', async () => {
+      if(!window.modalitaTavolo || !window.tavoloCorrente){
+        alert('Seleziona prima un tavolo.');
+        return;
+      }
+      try{ if(!window.tavoloCorrente){ window.tavoloCorrente = JSON.parse(sessionStorage.getItem('zappy_tavolo_corrente')||'null'); } }catch(_){}
+      const ok = await zappySalvaCarrelloSuTavolo();
+      if(ok){
+        // esci dalla modalità tavolo e torna alla pagina Tavoli
+        if (typeof window.esciModalitaTavolo === 'function') window.esciModalitaTavolo();
+        const btnTavoli = document.getElementById('btnTavoli');
+        if(btnTavoli) btnTavoli.click();
+      }
+    });
+  }
+});
+</script>
+<script>
+// === ZAPPY: Apri popup tavolo, imposta dati e prepara "Aggiungi prodotti"
+window.apriPopupOrdiniTavolo = function({ salaId, tavoloId, nome }){
+  try{
+    window.tavoloCorrente = { salaId, tavoloId, nome };
+    window.modalitaTavolo = false; // non ancora in modalità prodotti; verrà abilitata al click "Aggiungi prodotti"
+    const pop = document.getElementById('popup-ordini-tavolo');
+    if(pop){
+      pop.setAttribute('data-sala-id', salaId || '');
+      pop.setAttribute('data-tavolo-id', tavoloId || '');
+      pop.setAttribute('data-tavolo-nome', nome || '');
+      // Aggiorna titolo
+      const h = pop.querySelector('.header h3');
+      if(h) h.textContent = nome ? `Tavolo ${nome}` : 'Tavolo';
+      // Mostra popup
+      pop.style.display = 'flex';
+      // Avvia listener per lo stato corrente del tavolo
+      try { if (typeof listenOrdineTablet === 'function') { listenOrdineTablet({ salaId, tavoloId }); } } catch (err) { console.warn('Listener ordine_tablet non avviato', err); }
+      // Bottoni chiudi
+      const chiudiBtns = pop.querySelectorAll('.close, .chiudi');
+      chiudiBtns.forEach(b => b.onclick = () => { pop.style.display = 'none'; });
+      // Pulsante "Aggiungi prodotti" -> entraModalitaTavolo con info
+      const addBtn = pop.querySelector('#btn-apri-aggiungi-prodotti, .vai-a-pagamento');
+      if(addBtn){
+        addBtn.onclick = () => {
+          // entra in modalità tavolo e passa alla pagina prodotti
+          if(typeof window.entraModalitaTavolo === 'function'){
+            window.entraModalitaTavolo({ salaId, tavoloId, nome });
+          }else{
+            // fallback minimale
+            window.modalitaTavolo = true;
+            const btnHome = document.getElementById('btnHome');
+            if(btnHome) btnHome.click();
+          }
+          pop.style.display = 'none';
+        };
+      }
+    }
+  }catch(e){
+    console.error('apriPopupOrdiniTavolo error:', e);
+  }
+};
+</script>
+<script>
+// === ZAPPY: robust tavolo selection persistence ===
+// Save/retrieve selection in sessionStorage in case the page/UI resets variables.
+function salvaTavoloSelezionato(info){
+  try {
+    if(!info) return;
+    window.tavoloCorrente = info;
+    sessionStorage.setItem('zappy_tavolo_corrente', JSON.stringify(info));
+  } catch(_) {}
+}
+function leggiTavoloSelezionato(){
+  try {
+    if(window.tavoloCorrente && window.tavoloCorrente.tavoloId) return window.tavoloCorrente;
+    const raw = sessionStorage.getItem('zappy_tavolo_corrente');
+    if(raw){
+      const info = JSON.parse(raw);
+      window.tavoloCorrente = info;
+      return info;
+    }
+  } catch(_) {}
+  return null;
+}
+
+// Override helpers to always persist
+(function(){
+  const _oldApri = window.apriPopupOrdiniTavolo;
+  window.apriPopupOrdiniTavolo = function(args){
+    try{
+      if(args) salvaTavoloSelezionato(args);
+    }catch(_){}
+    if(typeof _oldApri === 'function') return _oldApri(args);
+  };
+
+  const _oldEntra = window.entraModalitaTavolo;
+  window.entraModalitaTavolo = function(info){
+    if(info) salvaTavoloSelezionato(info);
+    else leggiTavoloSelezionato();
+    if(typeof _oldEntra === 'function') return _oldEntra(info || window.tavoloCorrente);
+  };
+
+  const _oldEsci = window.esciModalitaTavolo;
+  window.esciModalitaTavolo = function(){
+    if(typeof _oldEsci === 'function') _oldEsci();
+    // non cancelliamo subito lo storage, lo puliremo al salvataggio
+  };
+})();
+
+document.addEventListener('DOMContentLoaded', function(){
+  // Ensure sidebar button tries to read selection before alerting
+  const btnAgg = document.getElementById('btnAggAlTavoloSidebar');
+  if(btnAgg){
+    btnAgg.addEventListener('click', async (ev) => {
+      // if missing, try recovering from storage
+      if(!window.tavoloCorrente || !window.tavoloCorrente.tavoloId){
+        leggiTavoloSelezionato();
+      }
+      if(!window.tavoloCorrente || !window.tavoloCorrente.tavoloId){
+        alert('Seleziona prima un tavolo.');
+        return;
+      }
+      // trigger existing handler (already attached earlier in file)
+      // We don't duplicate logic here.
+    });
+  }
+
+  // When saving successfully, clear the storage key
+  const origSave = window.zappySalvaCarrelloSuTavolo;
+  window.zappySalvaCarrelloSuTavolo = async function(){
+    const ok = await origSave();
+    if(ok){
+      try { sessionStorage.removeItem('zappy_tavolo_corrente'); } catch(_){}
+    }
+    return ok;
+  };
+});
+</script>
+<script>
+// === ZAPPY ROBUST ===
+function zGetFromBodyData(){
+  const b = document.body;
+  if(!b) return null;
+  const salaId = b.getAttribute('data-sala-id') || null;
+  const tavoloId = b.getAttribute('data-tavolo-id') || null;
+  const nome = b.getAttribute('data-tavolo-nome') || null;
+  if(tavoloId) return { salaId, tavoloId, nome };
+  return null;
+}
+function zSaveSelection(info){
+  if(!info) return;
+  window.tavoloCorrente = info;
+  try{ sessionStorage.setItem('zappy_tavolo_corrente', JSON.stringify(info)); }catch(_){}
+  try{
+    document.body.setAttribute('data-sala-id', info.salaId || '');
+    document.body.setAttribute('data-tavolo-id', info.tavoloId || '');
+    document.body.setAttribute('data-tavolo-nome', info.nome || '');
+  }catch(_){}
+}
+function zReadSelection(){
+  // priority: window -> body data -> sessionStorage
+  if(window.tavoloCorrente && window.tavoloCorrente.tavoloId) return window.tavoloCorrente;
+  const fromBody = zGetFromBodyData();
+  if(fromBody){ window.tavoloCorrente = fromBody; return fromBody; }
+  try{
+    const raw = sessionStorage.getItem('zappy_tavolo_corrente');
+    if(raw){
+      const info = JSON.parse(raw);
+      window.tavoloCorrente = info;
+      return info;
+    }
+  }catch(_){}
+  return null;
+}
+
+// Override or define entraModalitaTavolo to always persist and show button
+(function(){
+  const _old = window.entraModalitaTavolo;
+  window.entraModalitaTavolo = function(info){
+    if(info) zSaveSelection(info);
+    const current = zReadSelection();
+    window.modalitaTavolo = true;
+    // mostra pulsante sopra al carrello
+    const btn = document.getElementById('btnAggAlTavoloSidebar');
+    if(btn) btn.style.display = 'block';
+    // chiudi popup (se presente) e vai ai prodotti
+    const pop = document.getElementById('popup-ordini-tavolo') || document.getElementById('popupTavolo');
+    if(pop) pop.style.display = 'none';
+    const home = document.getElementById('btnHome');
+    if(home) home.click();
+    if(typeof _old === 'function') return _old(info || current);
+  };
+})();
+
+// Patch apriPopupOrdiniTavolo to persist on open
+(function(){
+  const _old = window.apriPopupOrdiniTavolo;
+  window.apriPopupOrdiniTavolo = function(args){
+    if(args) zSaveSelection(args);
+    if(typeof _old === 'function') return _old(args);
+  };
+})();
+
+// Replace sidebar click to recover selection before validation
+document.addEventListener('DOMContentLoaded', function(){
+  const btn = document.getElementById('btnAggAlTavoloSidebar');
+  if(btn){
+    // remove all previous listeners by cloning (simple trick)
+    const clone = btn.cloneNode(true);
+    btn.parentNode.replaceChild(clone, btn);
+  }
+  const finalBtn = document.getElementById('btnAggAlTavoloSidebar');
+  if(finalBtn){
+    finalBtn.addEventListener('click', async () => {
+      // recover selection
+      const info = zReadSelection();
+      if(!info || !info.tavoloId){
+        alert('Seleziona prima un tavolo.');
+        return;
+      }
+      window.tavoloCorrente = info;
+      // call existing save function if present
+      if(typeof window.zappySalvaCarrelloSuTavolo === 'function'){
+        const ok = await window.zappySalvaCarrelloSuTavolo();
+        if(ok){
+          // back to Tavoli
+          const btnTav = document.getElementById('btnTavoli');
+          if(btnTav) btnTav.click();
+          // clear mode
+          window.modalitaTavolo = false;
+          try{ sessionStorage.removeItem('zappy_tavolo_corrente'); }catch(_){}
+          try{
+            document.body.removeAttribute('data-sala-id');
+            document.body.removeAttribute('data-tavolo-id');
+            document.body.removeAttribute('data-tavolo-nome');
+          }catch(_){}
+          const b = document.getElementById('btnAggAlTavoloSidebar');
+          if(b) b.style.display = 'none';
+        }
+      }
+    });
+  }
+
+  // When opening the popup, also mirror data-* onto body if present
+  document.body.addEventListener('click', (e) => {
+    const box = e.target.closest('#popup-ordini-tavolo, #popupTavolo');
+    if(box){
+      const info = {
+        salaId: box.getAttribute('data-sala-id') || null,
+        tavoloId: box.getAttribute('data-tavolo-id') || null,
+        nome: box.getAttribute('data-tavolo-nome') || null,
+      };
+      if(info.tavoloId) zSaveSelection(info);
+    }
+  }, true);
+});
+</script>
+<script type="module">
+  import { getApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
+  import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
+
+  const db = getFirestore(getApp());
+
+  // Esporta in window una funzione che usa le API importate correttamente
+  window.zappySalvaCarrelloSuTavolo = async function(){
+    try{
+      const info = window.tavoloCorrente || null;
+      if(!info || !info.salaId || !info.tavoloId){
+        alert('Seleziona prima un tavolo.');
+        return false;
+      }
+      const carrello = Array.isArray(window.carrello) ? window.carrello : [];
+      const items = carrello.map(p => ({
+        nome: p.nome || '',
+        prezzo: Number(p.prezzo || 0),
+        quantita: Number(p.quantita || 1),
+        immagine: p.immagine || null
+      }));
+
+      const ordineRef = doc(db, "locali","zappydemo","sale", info.salaId, "tavoli", info.tavoloId, "stato", "ordine_tablet");
+      const snap = await getDoc(ordineRef);
+      let esistenti = [];
+      if (snap.exists()) {
+        const d = snap.data() || {};
+        esistenti = Array.isArray(d.items) ? d.items : [];
+      }
+
+      const map = new Map();
+      for (const it of esistenti) {
+        const key = `${it.nome}__${Number(it.prezzo)}`;
+        map.set(key, { ...it, prezzo: Number(it.prezzo || 0), quantita: Number(it.quantita || 0) });
+      }
+      for (const it of items) {
+        const key = `${it.nome}__${Number(it.prezzo)}`;
+        if (map.has(key)) {
+          const cur = map.get(key);
+          cur.quantita = (cur.quantita || 0) + (it.quantita || 0);
+          map.set(key, cur);
+        } else {
+          map.set(key, { ...it });
+        }
+      }
+      const merged = Array.from(map.values());
+
+      await setDoc(ordineRef, {
+        items: merged,
+        updatedAt: new Date().toISOString(),
+        tavoloNome: info.nome || null
+      }, { merge: true });
+
+      console.log('[ZAPPY] Ordine salvato su', info);
+      return true;
+    }catch(err){
+      console.error('[ZAPPY] Errore salvataggio:', err);
+      alert('Errore durante il salvataggio sul tavolo.');
+      return false;
+    }
+  };
+</script>
+<script type="module">
+import { getApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
+import { getFirestore, doc, setDoc, collection, addDoc } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
+
+const db = getFirestore(getApp());
+
+function _sum(items){ try { return items.reduce((s,p)=> s + Number(p.prezzo||0)*Number(p.quantita||0), 0); } catch { return 0; } }
+
+window.zappySalvaCarrelloSuTavolo = async function(){
+  const info = (window.tavoloCorrente) || null;
+  const carrello = Array.isArray(window.carrello) ? window.carrello : [];
+  console.log("[ZAPPY] DEBUG info tavolo:", info);
+  console.log("[ZAPPY] DEBUG carrello items:", carrello);
+  try{
+    if(!info || !info.salaId || !info.tavoloId){
+      alert("Seleziona prima un tavolo."); 
+      return false;
+    }
+
+    const items = carrello.map(p => ({
+      nome: p?.nome ?? "",
+      prezzo: Number(p?.prezzo ?? 0),
+      quantita: Number(p?.quantita ?? 1),
+      immagine: p?.immagine ?? null
+    }));
+
+    const ordinePath = ["locali","zappydemo","sale",info.salaId,"tavoli",info.tavoloId,"stato","ordine_tablet"];
+    console.log("[ZAPPY] DEBUG setDoc path:", ordinePath.join("/"));
+
+    await setDoc(doc(db, ...ordinePath), {
+      items,
+      updatedAt: new Date().toISOString(),
+      tavoloNome: info?.nome ?? null,
+      source: "tablet",
+      stato: "APERTO",
+      totale: _sum(items)
+    }, { merge: true });
+
+    const storicoPath = ["locali","zappydemo","ordini_tablet"];
+    console.log("[ZAPPY] DEBUG addDoc collection:", storicoPath.join("/"));
+    await addDoc(collection(db, ...storicoPath), {
+      tavoloId: info.tavoloId,
+      salaId: info.salaId,
+      tavoloNome: info?.nome ?? null,
+      items,
+      totale: _sum(items),
+      createdAt: new Date().toISOString(),
+      source: "tablet",
+      stato: "APERTO"
+    });
+
+    console.log("[ZAPPY] Ordine tablet salvato OK 👍");
+    return true;
+  }catch(err){
+    console.error("[ZAPPY] SAVE ERROR:", err);
+    alert("Errore durante il salvataggio su ordini_tablet.\n" + (err.code||"") + " " + (err.message||""));
+    return false;
+  }
+};
+</script>
+<script type="module">
+import { getApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
+import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
+
+const db = getFirestore(getApp());
+
+function euro(n){ try{ return new Intl.NumberFormat('it-IT',{style:'currency',currency:'EUR'}).format(Number(n||0)); }catch{ return `€ ${Number(n||0).toFixed(2)}`; } }
+function somma(items){ try{ return items.reduce((s,p)=> s + Number(p.prezzo||0)*Number(p.quantita||0),0);}catch{ return 0; } }
+
+// Rende il contenuto nel popup tavolo (se non esistono i nodi li crea al volo)
+function renderOrdinePopup(data){
+  const pop = document.getElementById('popup-ordini-tavolo') || document.getElementById('popupTavolo');
+  if(!pop){
+    console.warn('[ZAPPY] Popup tavolo non trovato.');
+    return;
+  }
+  let content = pop.querySelector('.content');
+  if(!content){
+    content = document.createElement('div');
+    content.className = 'content';
+    pop.appendChild(content);
+  }
+  content.innerHTML = ''; // reset
+
+  const items = Array.isArray(data?.items) ? data.items : [];
+  if(items.length === 0){
+    const empty = document.createElement('div');
+    empty.style.padding = '8px 0';
+    empty.style.opacity = '0.7';
+    empty.textContent = 'Nessun prodotto nel tavolo (tablet).';
+    content.appendChild(empty);
+  } else {
+    items.forEach(it => {
+      const row = document.createElement('div');
+      row.style.display = 'grid';
+      row.style.gridTemplateColumns = '1fr auto auto';
+      row.style.gap = '8px';
+      row.style.alignItems = 'center';
+      row.style.padding = '6px 0';
+
+      const name = document.createElement('div');
+      name.innerHTML = `<strong>${it.nome || ''}</strong><br><small>x${it.quantita || 1}</small>`;
+      const price = document.createElement('div');
+      price.textContent = euro(Number(it.prezzo||0));
+      const sub = document.createElement('div');
+      sub.textContent = euro(Number(it.prezzo||0) * Number(it.quantita||1));
+      sub.style.fontWeight = '700';
+
+      row.appendChild(name);
+      row.appendChild(price);
+      row.appendChild(sub);
+      content.appendChild(row);
+    });
+  }
+
+  // Totale nel footer, se esiste
+  let footer = pop.querySelector('.footer');
+  if(!footer){
+    footer = document.createElement('div');
+    footer.className = 'footer';
+    pop.appendChild(footer);
+  }
+  let tot = footer.querySelector('.totale');
+  if(!tot){
+    tot = document.createElement('div');
+    tot.className = 'totale';
+    footer.prepend(tot);
+  }
+  tot.textContent = `Totale: ${euro(somma(items))}`;
+}
+
+// Carica ordine_tablet e lo mostra nel popup
+async function caricaOrdineTabletInPopup(info){
+  try{
+    if(!info || !info.salaId || !info.tavoloId) return;
+    const ordineRef = doc(db, "locali", "zappydemo", "sale", info.salaId, "tavoli", info.tavoloId, "stato", "ordine_tablet");
+    const snap = await getDoc(ordineRef);
+    const data = snap.exists() ? (snap.data() || {}) : { items: [] };
+    renderOrdinePopup(data);
+  }catch(err){
+    console.error('[ZAPPY] Errore caricamento ordine_tablet:', err);
+  }
+}
+
+// Hook: quando apri il popup o setti il tavolo corrente, carica l'ordine
+(function(){
+  const _oldApri = window.apriPopupOrdiniTavolo;
+  window.apriPopupOrdiniTavolo = function(args){
+    if(typeof _oldApri === 'function') _oldApri(args);
+    setTimeout(()=> caricaOrdineTabletInPopup(args || window.tavoloCorrente || null), 0);
+  };
+})();
+</script>
+<script type="module">
+import { getApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
+import { getFirestore, doc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
+
+const db = getFirestore(getApp());
+let __zappyUnsubOrdineTablet = null;
+
+function euro(n){ try{ return new Intl.NumberFormat('it-IT',{style:'currency',currency:'EUR'}).format(Number(n||0)); }catch{ return `€ ${Number(n||0).toFixed(2)}`; } }
+function somma(items){ try{ return items.reduce((s,p)=> s + Number(p.prezzo||0)*Number(p.quantita||0),0);}catch{ return 0; } }
+
+function renderOrdinePopup(data){
+  const pop = document.getElementById('popup-ordini-tavolo') || document.getElementById('popupTavolo');
+  if(!pop) return;
+  let content = pop.querySelector('.content');
+  if(!content){ content = document.createElement('div'); content.className='content'; pop.appendChild(content); }
+  content.innerHTML = '';
+
+  const items = Array.isArray(data?.items) ? data.items : [];
+  if(items.length === 0){
+    const empty = document.createElement('div');
+    empty.style.padding = '10px 12px';
+    empty.style.background = 'rgba(0,0,0,0.03)';
+    empty.style.borderRadius = '10px';
+    empty.textContent = 'Nessun prodotto nel tavolo (tablet).';
+    content.appendChild(empty);
+  } else {
+    items.forEach(it => {
+      const row = document.createElement('div');
+      row.style.display='grid';
+      row.style.gridTemplateColumns='1fr auto auto';
+      row.style.gap='8px';
+      row.style.alignItems='center';
+      row.style.padding='8px 0';
+      row.innerHTML = `
+        <div><strong>${it.nome||''}</strong><br><small>x${it.quantita||1}</small></div>
+        <div>${euro(Number(it.prezzo||0))}</div>
+        <div style="font-weight:700">${euro(Number(it.prezzo||0)*Number(it.quantita||1))}</div>`;
+      content.appendChild(row);
+    });
+  }
+
+  let footer = pop.querySelector('.footer');
+  if(!footer){ footer = document.createElement('div'); footer.className='footer'; pop.appendChild(footer); }
+  let tot = pop.querySelector('.footer .totale');
+  if(!tot){ tot = document.createElement('div'); tot.className='totale'; footer.prepend(tot); }
+  tot.textContent = `Totale: ${euro(somma(items))}`;
+}
+
+// Caricamento realtime dell'ordine tablet nel popup
+async async function listenOrdineTablet(info){
+  if(__zappyUnsubOrdineTablet){ __zappyUnsubOrdineTablet(); __zappyUnsubOrdineTablet = null; }
+  if(!info || !info.salaId || !info.tavoloId) return;
+
+  const ref = doc(db, "locali", "zappydemo", "sale", info.salaId, "tavoli", info.tavoloId, "stato", "ordine_tablet");
+  // primo fetch (fallback)
+  try{
+    const s = await getDoc(ref);
+    renderOrdinePopup(s.exists()? (s.data()||{}) : { items: [] });
+  }catch(err){
+    console.error("[ZAPPY] getDoc ordine_tablet fallita:", err);
+  }
+  // listener realtime
+  __zappyUnsubOrdineTablet = onSnapshot(ref, snap => {
+    const data = snap.exists() ? (snap.data()||{}) : { items: [] };
+    renderOrdinePopup(data);
+  }, err => console.error("[ZAPPY] onSnapshot ordine_tablet:", err));
+}
+
+// Hook su apriPopupOrdiniTavolo
+(function(){
+  const _old = window.apriPopupOrdiniTavolo;
+  window.apriPopupOrdiniTavolo = function(args){
+    if(typeof _old === 'function') _old(args);
+    const info = args || window.tavoloCorrente || null;
+    // aggiorna intestazione (già presente) e attiva listener
+    setTimeout(()=> listenOrdineTablet(info), 0);
+  };
+})();
+
+// Disattiva listener quando si chiude il popup (se il bottone ha classe .chiudi o .close)
+document.addEventListener('click', (e)=>{
+  if(e.target.closest('.chiudi, .close')){
+    if(__zappyUnsubOrdineTablet){ __zappyUnsubOrdineTablet(); __zappyUnsubOrdineTablet = null; }
+  }
+});
+</script>
+
+<script type="module">
+import { getApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
+import { getFirestore, doc, setDoc, collection, addDoc } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
+
+const db = getFirestore(getApp());
+function sum(items){ try { return items.reduce((s,p)=> s + Number(p.prezzo||0)*Number(p.quantita||0), 0);} catch{return 0;} }
+
+// FINAL save used by the sidebar button
+window.zappySalvaCarrelloSuTavolo = async function(){
+  const info = window.tavoloCorrente || null;
+  const carrello = Array.isArray(window.carrello) ? window.carrello : [];
+  console.log("[ZAPPY][SAVE] tavoloCorrente:", info);
+  console.log("[ZAPPY][SAVE] carrello:", carrello);
+  try{
+    if(!info || !info.salaId || !info.tavoloId){
+      alert("Seleziona prima un tavolo.");
+      return false;
+    }
+    const items = carrello.map(p => ({
+      nome: p?.nome ?? "",
+      prezzo: Number(p?.prezzo ?? 0),
+      quantita: Number(p?.quantita ?? 1),
+      immagine: p?.immagine ?? null
+    }));
+    const totale = sum(items);
+
+    // 1) Stato aperto nel tavolo (tablet)
+    const ordineRef = doc(db, "locali","zappydemo","sale", info.salaId, "tavoli", info.tavoloId, "stato", "ordine_tablet");
+    console.log("[ZAPPY][SAVE] setDoc ->", "locali/zappydemo/sale/"+info.salaId+"/tavoli/"+info.tavoloId+"/stato/ordine_tablet");
+    await setDoc(ordineRef, {
+      items, totale, source:"tablet", stato:"APERTO",
+      tavoloNome: info?.nome ?? null, updatedAt: new Date().toISOString(),
+      debugWrite:true
+    }, { merge:true });
+
+    // 2) Storico ordini_tablet
+    const collTablet = collection(db, "locali","zappydemo","ordini_tablet");
+    const add1 = await addDoc(collTablet, {
+      tavoloId: info.tavoloId, salaId: info.salaId, tavoloNome: info?.nome ?? null,
+      items, totale, createdAt: new Date().toISOString(), source:"tablet", stato:"APERTO", debugWrite:true
+    });
+    console.log("[ZAPPY][SAVE] addDoc ordini_tablet id:", add1.id);
+
+    // 3) (TEMP) Scrivi anche nello storico esistente 'ordini' per verifica visiva
+    const collLegacy = collection(db, "locali","zappydemo","ordini");
+    const add2 = await addDoc(collLegacy, {
+      tavoloId: info.tavoloId, salaId: info.salaId, tavoloNome: info?.nome ?? null,
+      items, totale, createdAt: new Date().toISOString(), source:"tablet_debug", stato:"APERTO", debugWrite:true
+    });
+    console.log("[ZAPPY][SAVE] addDoc ordini (legacy) id:", add2.id);
+
+    console.log("[ZAPPY][SAVE] COMPLETATO ✅");
+    return true;
+  }catch(err){
+    console.error("[ZAPPY][SAVE] ERROR:", err);
+    alert("Salvataggio fallito: " + (err.code||"") + " " + (err.message||""));
+    return false;
+  }
+};
+</script>
 </body>
 </html>
