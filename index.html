@@ -3806,5 +3806,141 @@ window.zappySalvaCarrelloSuTavolo = async function(){
   }
 };
 </script>
+
+<!-- ZAPPY OVERRIDE v2: ordini_tablet strutturato come 'ordini' -->
+<script type="module">
+  import { getApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
+  import { getFirestore, collection, addDoc, serverTimestamp, query, where, orderBy, limit, onSnapshot } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
+
+  const db = getFirestore(getApp());
+  const LOCALE_ID = "zappydemo";
+
+  function formatDateIT(d=new Date()){
+    try {
+      return d.toLocaleString("it-IT", { day:"2-digit", month:"long", year:"numeric", hour:"2-digit", minute:"2-digit" });
+    } catch { return d.toISOString(); }
+  }
+
+  function getProdottiFromCart(){
+    let prodotti = [];
+    try {
+      if (typeof window.getCartItemsForZappy === "function") prodotti = window.getCartItemsForZappy();
+      else if (Array.isArray(window.cartItems)) prodotti = window.cartItems;
+      else if (Array.isArray(window.carrello)) prodotti = window.carrello;
+    } catch {}
+    return (prodotti || []).map(p => {
+      const prezzo = Number(p?.prezzo) || 0;
+      const quantita = Number(p?.quantita ?? p?.qty ?? 1) || 1;
+      return {
+        nome: p?.nome ?? p?.name ?? "Prodotto",
+        prezzo,
+        quantita,
+        totale: +(prezzo * quantita).toFixed(2)
+      };
+    });
+  }
+
+  function totaleProdotti(prodotti){
+    try { return +(prodotti.reduce((s,p)=> s + (Number(p.totale)||0), 0).toFixed(2)); }
+    catch { return 0; }
+  }
+
+  // === SAVE: crea un doc in ordini_tablet con la STESSA struttura di `ordini` ===
+  window.aggiungiCarrelloAlTavolo = async function(){
+    const info = window._zappyDestinazioneTavolo || window.tavoloCorrente;
+    if (!info || !info.salaId || !info.tavoloId) { alert("Seleziona un tavolo."); return; }
+
+    const prodotti = getProdottiFromCart();
+    if (!prodotti.length) { alert("Carrello vuoto."); return; }
+
+    const totale = totaleProdotti(prodotti);
+
+    await addDoc(collection(db, "locali", LOCALE_ID, "ordini_tablet"), {
+      data: formatDateIT(new Date()),
+      prodotti,                  // <-- stessa chiave di `ordini`
+      stato: "APERTO",
+      tavolo: String(info.tavoloId || info.nome || ""),
+      totale,
+      // metto anche questi per filtri/analisi (non usati dal renderer)
+      salaId: info.salaId,
+      tavoloId: info.tavoloId,
+      createdAt: serverTimestamp(),
+      source: "tablet"
+    });
+
+    alert("Prodotti aggiunti al tavolo!");
+    const bt = document.getElementById("btnTavoli");
+    if (bt) bt.click();
+  };
+
+  // === LISTEN: popup legge da ordini_tablet (formato come `ordini`) ===
+  window.listenOrdineTablet = function(info){
+    try {
+      if (window.__zappyUnsubOrdiniTablet) { window.__zappyUnsubOrdiniTablet(); window.__zappyUnsubOrdiniTablet = null; }
+      if (!info || !info.tavoloId) return;
+
+      const q = query(
+        collection(db, "locali", LOCALE_ID, "ordini_tablet"),
+        where("tavolo", "==", String(info.tavoloId)),
+        where("stato", "==", "APERTO"),
+        orderBy("createdAt", "desc"),
+        limit(1)
+      );
+
+      window.__zappyUnsubOrdiniTablet = onSnapshot(q, snap => {
+        if (snap.empty) {
+          if (typeof window.renderOrdinePopup === "function") window.renderOrdinePopup({ prodotti: [], totale: 0 });
+          return;
+        }
+        const data = snap.docs[0].data() || {};
+        if (typeof window.renderOrdinePopup === "function") window.renderOrdinePopup(data);
+      }, err => console.error("[ZAPPY] ordini_tablet listener:", err));
+    } catch (e) {
+      console.error("[ZAPPY] listenOrdineTablet error:", e);
+    }
+  };
+
+  // === Renderer robusto (accetta prodotti[] o items[]) ===
+  (function(){
+    const prev = window.renderOrdinePopup;
+    window.renderOrdinePopup = function(data){
+      const arr = Array.isArray(data?.prodotti) ? data.prodotti : (Array.isArray(data?.items) ? data.items : []);
+      const prodotti = arr.map(p => ({
+        nome: p.nome ?? "Prodotto",
+        prezzo: Number(p.prezzo) || 0,
+        quantita: Number(p.quantita) || 1,
+        totale: Number(p.totale) || ((Number(p.prezzo)||0)*(Number(p.quantita)||1))
+      }));
+      const tot = totaleProdotti(prodotti);
+      // se hai già un tuo renderer, lascialo fare
+      if (typeof prev === "function") { try { prev({ prodotti, totale: tot }); return; } catch {} }
+      // fallback minimal
+      const pop = document.getElementById("popup-ordini-tavolo") || document.getElementById("popupTavolo");
+      if (!pop) return;
+      let content = pop.querySelector(".content");
+      if (!content) { content = document.createElement("div"); content.className = "content"; pop.appendChild(content); }
+      content.innerHTML = "";
+      if (!prodotti.length) {
+        const d = document.createElement("div");
+        d.style.opacity = "0.7"; d.style.padding = "8px 0";
+        d.textContent = "Nessun prodotto nel tavolo (tablet).";
+        content.appendChild(d);
+      } else {
+        prodotti.forEach(p => {
+          const r = document.createElement("div");
+          r.style.display="grid"; r.style.gridTemplateColumns="1fr auto auto"; r.style.gap="8px"; r.style.padding="6px 0";
+          r.innerHTML = `<div><strong>${p.nome}</strong><br><small>x${p.quantita}</small></div>
+                         <div>€ ${(p.prezzo).toFixed(2)}</div>
+                         <div style="font-weight:700">€ ${(p.totale).toFixed(2)}</div>`;
+          content.appendChild(r);
+        });
+      }
+      let footer = pop.querySelector(".footer"); if (!footer) { footer = document.createElement("div"); footer.className="footer"; pop.appendChild(footer); }
+      let totEl = footer.querySelector(".totale"); if (!totEl) { totEl = document.createElement("div"); totEl.className="totale"; footer.prepend(totEl); }
+      totEl.textContent = `Totale: € ${tot.toFixed(2)}`;
+    };
+  })();
+</script>
+
 </body>
 </html>
