@@ -3942,5 +3942,126 @@ window.zappySalvaCarrelloSuTavolo = async function(){
   })();
 </script>
 
+
+<!-- ZAPPY FINAL FIX: ordini_tablet identico a 'ordini' + popup reader -->
+<script type="module">
+  import { getApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
+  import {
+    getFirestore, collection, addDoc, serverTimestamp,
+    query, where, orderBy, limit, onSnapshot
+  } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
+
+  const db = getFirestore(getApp());
+  const LOCALE_ID = "zappydemo"; // cambia se serve
+
+  function formatDataIT(d = new Date()){
+    try {
+      return d.toLocaleString("it-IT", { day:"2-digit", month:"long", year:"numeric", hour:"2-digit", minute:"2-digit" });
+    } catch { return d.toISOString(); }
+  }
+
+  function getCartProdotti(){
+    let arr = [];
+    try {
+      if (typeof window.getCartItemsForZappy === 'function') arr = window.getCartItemsForZappy();
+      else if (Array.isArray(window.cartItems)) arr = window.cartItems;
+      else if (Array.isArray(window.carrello)) arr = window.carrello;
+    } catch {}
+    return (arr || []).map(p => {
+      const prezzo = Number(p?.prezzo) || 0;
+      const quantita = Number(p?.quantita ?? p?.qty ?? 1) || 1;
+      return {
+        nome: p?.nome ?? p?.name ?? "Prodotto",
+        prezzo,
+        quantita,
+        totale: +(prezzo * quantita).toFixed(2)
+      };
+    });
+  }
+
+  function sommaTotale(prodotti){
+    try { return +(prodotti.reduce((s,p)=> s + (Number(p.totale)||0), 0).toFixed(2)); }
+    catch { return 0; }
+  }
+
+  // 1) WRITE: sostituisce qualsiasi vecchio writer e salva **solo** con struttura 'ordini'
+  window.aggiungiCarrelloAlTavolo = async function(){
+    const info = window._zappyDestinazioneTavolo || window.tavoloCorrente;
+    if (!info || !info.salaId || !info.tavoloId){ alert("Seleziona un tavolo."); return; }
+
+    const prodotti = getCartProdotti();
+    if (!prodotti.length){ alert("Carrello vuoto."); return; }
+
+    const totale = sommaTotale(prodotti);
+
+    await addDoc(collection(db, "locali", LOCALE_ID, "ordini_tablet"), {
+      data: formatDataIT(new Date()),    // stringa, come in 'ordini'
+      prodotti,                          // <- stessa chiave/struttura
+      stato: "APERTO",
+      tavolo: String(info.tavoloId),     // <- stringa
+      totale,                            // somma righe
+
+      // meta utili (non rompono schema 'ordini')
+      salaId: info.salaId,
+      tavoloId: info.tavoloId,
+      tavoloNome: info?.nome || null,
+      createdAt: serverTimestamp(),
+      source: "tablet"
+    });
+
+    const b = document.getElementById("btnTavoli");
+    if (b) b.click();
+  };
+
+  // 2) READ: il popup legge l'ULTIMO ordine APERTO da ordini_tablet (stessa struttura di 'ordini')
+  window.listenOrdineTablet = function(info){
+    try {
+      if (window.__zUnsubOrdiniTablet) { window.__zUnsubOrdiniTablet(); window.__zUnsubOrdiniTablet = null; }
+      if (!info || !info.tavoloId) return;
+      const qy = query(
+        collection(db, "locali", LOCALE_ID, "ordini_tablet"),
+        where("tavolo", "==", String(info.tavoloId)),
+        where("stato", "==", "APERTO"),
+        orderBy("createdAt", "desc"),
+        limit(1)
+      );
+      window.__zUnsubOrdiniTablet = onSnapshot(qy, (snap) => {
+        let data = { prodotti: [], totale: 0 };
+        if (!snap.empty) data = snap.docs[0].data() || data;
+        if (typeof window.renderOrdinePopup === "function") window.renderOrdinePopup(data);
+      }, (err) => console.error("[ZAPPY] ordini_tablet listen error:", err));
+    } catch(e){ console.error("[ZAPPY] listenOrdineTablet init error:", e); }
+  };
+
+  // 3) Renderer fallback (nel caso il tuo sia assente): visualizza prodotti[]
+  (function(){
+    const prev = window.renderOrdinePopup;
+    window.renderOrdinePopup = function(payload){
+      const prodotti = Array.isArray(payload?.prodotti) ? payload.prodotti : [];
+      const tot = sommaTotale(prodotti);
+      if (typeof prev === "function") { try { prev({prodotti, totale: tot}); return; } catch(e){} }
+      const pop = document.getElementById("popup-ordini-tavolo") || document.getElementById("popupTavolo");
+      if (!pop) return;
+      let body = pop.querySelector(".content"); if (!body){ body = document.createElement("div"); body.className="content"; pop.appendChild(body); }
+      body.innerHTML = "";
+      if (!prodotti.length){
+        const d = document.createElement("div"); d.style.opacity="0.7"; d.textContent="Nessun prodotto nel tavolo (tablet)."; body.appendChild(d);
+      } else {
+        prodotti.forEach(p => {
+          const r = document.createElement("div");
+          r.style.display="grid"; r.style.gridTemplateColumns="1fr auto auto"; r.style.gap="8px"; r.style.padding="6px 0";
+          r.innerHTML = `<div><strong>${p.nome}</strong><br><small>x${p.quantita}</small></div>
+                         <div>€ ${(Number(p.prezzo)||0).toFixed(2)}</div>
+                         <div style="font-weight:700">€ ${(Number(p.totale)||0).toFixed(2)}</div>`;
+          body.appendChild(r);
+        });
+      }
+      let foot = pop.querySelector(".footer"); if (!foot){ foot = document.createElement("div"); foot.className="footer"; pop.appendChild(foot); }
+      let t = foot.querySelector(".totale"); if (!t){ t = document.createElement("div"); t.className="totale"; foot.prepend(t); }
+      t.textContent = `Totale: € ${tot.toFixed(2)}`;
+    };
+  })();
+</script>
+
 </body>
 </html>
