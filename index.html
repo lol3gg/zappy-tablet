@@ -19,7 +19,7 @@
       appId: "1:356775808247:web:a5395430ad3dc9aa7c17f2"
     };
 
-    const app = initializeApp(firebaseConfig);
+    const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
     const db = getFirestore(app);
 // === FUNZIONI TAVOLI ===
 async function contaTotaleTavoli() {
@@ -1880,7 +1880,7 @@ html, body {
 }
 .btn-add-to-table:hover{ filter:brightness(1.03); }
 </style>
-<script>
+<script type="module">
 
 function aggiornaOrdine() {
   const lista = document.querySelector('.order-list');
@@ -2042,7 +2042,7 @@ function aggiornaOrdine() {
     totaleDOM.textContent = `€ ${totale.toFixed(2)}`;
 }
 
-</script><script>
+</script><script type="module">
 </script>
 <div class="popup-pagamento" id="popup-pagamento">
 <div class="popup-content">
@@ -2102,7 +2102,7 @@ function aggiornaOrdine() {
 </div>
 </div>
 </div>
-<script>
+<script type="module">
 function togglePopupPagamento() {
   const popup = document.getElementById('popup-pagamento');
   popup.style.display = popup.style.display === 'flex' ? 'none' : 'flex';
@@ -2152,7 +2152,7 @@ document.addEventListener("DOMContentLoaded", () => {
 <button class="conferma-subtotale" onclick="confermaSubtotale()">Conferma</button>
 </div>
 </div>
-<script>
+<script type="module">
 function togglePopupSubtotale(show = true) {
     const popup = document.getElementById('popup-subtotale');
     popup.style.display = show ? 'flex' : 'none';
@@ -2221,7 +2221,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 });
 </script>
-<script>
+<script type="module">
 // Rimuove barratura e nuovo totale quando cambia il carrello
 function resetTotaleManuale() {
     const totaleElem = document.querySelector('.totale strong');
@@ -2309,7 +2309,7 @@ aggiornaOrdine = function() {
 </div>
 </div>
 </div>
-<script>
+<script type="module">
 document.getElementById('btnTavoli').addEventListener('click', function() {
     mostraPagina('paginaTavoli');
 });
@@ -2327,7 +2327,7 @@ function mostraPagina(id) {
     }
 }
 </script>
-<script>
+<script type="module">
 document.addEventListener('DOMContentLoaded', function() {
     const btnHome = document.getElementById('btnHome');
     if (btnHome) {
@@ -2341,7 +2341,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 </script>
-<script>
+<script type="module">
 document.querySelectorAll('.btn-sezione-tavoli').forEach(button => {
     button.addEventListener('click', () => {
         const selected = button.textContent.trim();
@@ -2357,7 +2357,7 @@ document.querySelectorAll('.btn-sezione-tavoli').forEach(button => {
     });
 });
 </script>
-<script>
+<script type="module">
 function aggiornaConteggio() {
     const visibili = document.querySelectorAll('.tavolo[style*="block"]').length;
     const totale = document.querySelectorAll('.tavolo').length;
@@ -2393,7 +2393,7 @@ aggiornaConteggio();
 <button onclick="chiudiPopupTavolo()" style="background:#ccc; color:#000;">Chiudi</button>
 </div>
 </div>
-<script>
+<script type="module">
 
 function chiudiPopupTavolo() {
     document.getElementById('popupTavolo').style.display = 'none';
@@ -2406,7 +2406,7 @@ function vaiAllaVendita() {
 }
 </script>
 <button id="btnAggiungiAlTavolo" onclick="aggiungiAlTavolo()">AGGIUNGI AL TAVOLO</button>
-<script>
+<script type="module">
 let tavoloSelezionato = null;
 let ordiniTavoli = {};
 let carrello = []; // qui collegherai i prodotti reali
@@ -2515,8 +2515,8 @@ function aggiungiAlTavolo() {
 </div>
 </div>
 </div>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script>
+<script type="module" src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script type="module">
 document.getElementById('btnStatistiche').addEventListener('click', () => {
   document.querySelector('.content').style.display = 'none';
   document.getElementById('paginaTavoli').style.display = 'none';
@@ -2590,7 +2590,7 @@ function caricaGraficoBar(id, label, labels, data) {
 <div class="stat-box"><h4>Più rimossi dal carrello</h4><canvas id="graficoRimossiCarrello"></canvas></div>
 </div>
 </div>
-<script>
+<script type="module">
  document.getElementById('btnStatistiche').addEventListener('click', () => {
   document.querySelector('.content').style.display = 'none';
   document.getElementById('paginaTavoli').style.display = 'none';
@@ -2617,7 +2617,7 @@ function caricaGraficoBar(id, label, labels, data) {
   import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
   
   const firebaseConfig = { /* usa il tuo config già presente */ };
-  const app = initializeApp(firebaseConfig);
+  const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
   const db = getFirestore(app);
   
   async function caricaStatistiche(locale = "zappydemo") {
@@ -2693,7 +2693,7 @@ function aggiornaGrafici(stats) {
       messagingSenderId: "356775808247",
       appId: "1:356775808247:web:a5395430ad3dc9aa7c17f2"
     };
-    const app = initializeApp(firebaseConfig);
+    const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
     const db = getFirestore(app);
     
     async function caricaStatistiche() {
@@ -2748,7 +2748,7 @@ function aggiornaGrafici(stats) {
     
     window.caricaStatistiche = caricaStatistiche;
     </script>
-<script>
+<script type="module">
 // === NAV: Home <-> Tavoli ===
 (function(){
   const content = document.querySelector('.content');
@@ -2775,7 +2775,7 @@ function aggiornaGrafici(stats) {
   mostraHome();
 })();
 </script>
-<script>
+<script type="module">
 function ensureBackButton(){
   const page = document.getElementById('paginaTavoli');
   if(!page) return;
@@ -2811,7 +2811,7 @@ function ensureBackButton(){
 </div>
 </div>
 </div>
-<script>
+<script type="module">
 // === Gestione Popup Ordini Tavolo ===
 window._zappyTavoloCorrente = null; // { salaId, tavoloId, nome }
 
@@ -2929,7 +2929,7 @@ function vaiAPagamentoDaTavolo() {
 }
 </script>
 <button id="btn-aggiungi-al-tavolo" onclick="aggiungiCarrelloAlTavolo()">Aggiungi al tavolo</button>
-<script>
+<script type="module">
 // === Flusso "Aggiungi prodotti" e "Aggiungi al tavolo" ===
 function vaiAdAggiungereProdotti() {
   // salviamo destinazione e torniamo alla vista prodotti
@@ -3026,7 +3026,7 @@ document.addEventListener('click', (e) => {
   setTimeout(aggiornaBottoneAggiungiAlTavolo, 50);
 });
 </script>
-<script>
+<script type="module">
 // === ZAPPY: Modalità "aggiunta prodotti a un tavolo" ===
 window.modalitaTavolo = false;
 window.tavoloCorrente = null;
@@ -3136,7 +3136,7 @@ document.addEventListener('DOMContentLoaded', function(){
   aggiornaBottoneAggiungiAlTavolo();
 });
 </script>
-<script>
+<script type="module">
 // === ZAPPY: Salvataggio carrello su Firestore e ritorno ai Tavoli ===
 async function zappySalvaCarrelloSuTavolo() {
   try {
@@ -3221,7 +3221,7 @@ document.addEventListener('DOMContentLoaded', function(){
   }
 });
 </script>
-<script>
+<script type="module">
 // === ZAPPY: Apri popup tavolo, imposta dati e prepara "Aggiungi prodotti"
 window.apriPopupOrdiniTavolo = function({ salaId, tavoloId, nome }){
   try{
@@ -3238,7 +3238,7 @@ window.apriPopupOrdiniTavolo = function({ salaId, tavoloId, nome }){
       // Mostra popup
       pop.style.display = 'flex';
       // Avvia listener per lo stato corrente del tavolo
-      try { if (typeof listenOrdineTablet === 'function') { listenOrdineTablet({ salaId, tavoloId }); } } catch (err) { console.warn('Listener ordine_tablet non avviato', err); }
+      try { if (typeof listenOrdineTablet === 'function') { listenOrdineTablet({ salaId, tavoloId }); } } catch (err) { console.warn('Listener ordine_corrente non avviato', err); }
       // Bottoni chiudi
       const chiudiBtns = pop.querySelectorAll('.close, .chiudi');
       chiudiBtns.forEach(b => b.onclick = () => { pop.style.display = 'none'; });
@@ -3264,7 +3264,7 @@ window.apriPopupOrdiniTavolo = function({ salaId, tavoloId, nome }){
   }
 };
 </script>
-<script>
+<script type="module">
 // === ZAPPY: robust tavolo selection persistence ===
 // Save/retrieve selection in sessionStorage in case the page/UI resets variables.
 function salvaTavoloSelezionato(info){
@@ -3340,7 +3340,7 @@ document.addEventListener('DOMContentLoaded', function(){
   };
 });
 </script>
-<script>
+<script type="module">
 // === ZAPPY ROBUST ===
 function zGetFromBodyData(){
   const b = document.body;
@@ -3481,7 +3481,7 @@ document.addEventListener('DOMContentLoaded', function(){
         immagine: p.immagine || null
       }));
 
-      const ordineRef = doc(db, "locali","zappydemo","sale", info.salaId, "tavoli", info.tavoloId, "stato", "ordine_tablet");
+      const ordineRef = doc(db, "locali","zappydemo","sale", info.salaId, "tavoli", info.tavoloId, "stato", "ordine_corrente");
       const snap = await getDoc(ordineRef);
       let esistenti = [];
       if (snap.exists()) {
@@ -3552,7 +3552,7 @@ window.zappySalvaCarrelloSuTavolo = async function(){
     const totale = _sum(prodotti);
 
     // 1) Stato corrente per tavolo (opzionale, utile alla UI del tavolo)
-    const ordinePath = ["locali","zappydemo","sale",info.salaId,"tavoli",info.tavoloId,"stato","ordine_tablet"];
+    const ordinePath = ["locali","zappydemo","sale",info.salaId,"tavoli",info.tavoloId,"stato","ordine_corrente"];
     await setDoc(doc(db, ...ordinePath), {
       prodotti,
       updatedAt: new Date().toISOString(),
@@ -3656,16 +3656,16 @@ function renderOrdinePopup(data){
   tot.textContent = `Totale: ${euro(somma(items))}`;
 }
 
-// Carica ordine_tablet e lo mostra nel popup
+// Carica ordine_corrente e lo mostra nel popup
 async function caricaOrdineTabletInPopup(info){
   try{
     if(!info || !info.salaId || !info.tavoloId) return;
-    const ordineRef = doc(db, "locali", "zappydemo", "sale", info.salaId, "tavoli", info.tavoloId, "stato", "ordine_tablet");
+    const ordineRef = doc(db, "locali", "zappydemo", "sale", info.salaId, "tavoli", info.tavoloId, "stato", "ordine_corrente");
     const snap = await getDoc(ordineRef);
     const data = snap.exists() ? (snap.data() || {}) : { items: [] };
     renderOrdinePopup(data);
   }catch(err){
-    console.error('[ZAPPY] Errore caricamento ordine_tablet:', err);
+    console.error('[ZAPPY] Errore caricamento ordine_corrente:', err);
   }
 }
 
@@ -3731,19 +3731,19 @@ async async function listenOrdineTablet(info){
   if(__zappyUnsubOrdineTablet){ __zappyUnsubOrdineTablet(); __zappyUnsubOrdineTablet = null; }
   if(!info || !info.salaId || !info.tavoloId) return;
 
-  const ref = doc(db, "locali", "zappydemo", "sale", info.salaId, "tavoli", info.tavoloId, "stato", "ordine_tablet");
+  const ref = doc(db, "locali", "zappydemo", "sale", info.salaId, "tavoli", info.tavoloId, "stato", "ordine_corrente");
   // primo fetch (fallback)
   try{
     const s = await getDoc(ref);
     renderOrdinePopup(s.exists()? (s.data()||{}) : { items: [] });
   }catch(err){
-    console.error("[ZAPPY] getDoc ordine_tablet fallita:", err);
+    console.error("[ZAPPY] getDoc ordine_corrente fallita:", err);
   }
   // listener realtime
   __zappyUnsubOrdineTablet = onSnapshot(ref, snap => {
     const data = snap.exists() ? (snap.data()||{}) : { items: [] };
     renderOrdinePopup(data);
-  }, err => console.error("[ZAPPY] onSnapshot ordine_tablet:", err));
+  }, err => console.error("[ZAPPY] onSnapshot ordine_corrente:", err));
 }
 
 // Hook su apriPopupOrdiniTavolo
@@ -3792,8 +3792,8 @@ window.zappySalvaCarrelloSuTavolo = async function(){
     const totale = sum(items);
 
     // 1) Stato aperto nel tavolo (tablet)
-    const ordineRef = doc(db, "locali","zappydemo","sale", info.salaId, "tavoli", info.tavoloId, "stato", "ordine_tablet");
-    console.log("[ZAPPY][SAVE] setDoc ->", "locali/zappydemo/sale/"+info.salaId+"/tavoli/"+info.tavoloId+"/stato/ordine_tablet");
+    const ordineRef = doc(db, "locali","zappydemo","sale", info.salaId, "tavoli", info.tavoloId, "stato", "ordine_corrente");
+    console.log("[ZAPPY][SAVE] setDoc ->", "locali/zappydemo/sale/"+info.salaId+"/tavoli/"+info.tavoloId+"/stato/ordine_corrente");
     await setDoc(ordineRef, {
       items, totale, source:"tablet", stato:"APERTO",
       tavoloNome: info?.nome ?? null, updatedAt: new Date().toISOString(),
@@ -3962,6 +3962,5 @@ window.zappySalvaCarrelloSuTavolo = async function(){
 </script>
 
 
-<!-- Zappy: Migrazione automatica ordini verso schema ordini -->
 </body>
 </html>
