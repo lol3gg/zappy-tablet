@@ -2842,7 +2842,22 @@ async function fetchProdottiTavolo(salaId, tavoloId, nomeTavolo) {
       }
     } catch(_) {}
 
-    // Tentativo 2
+    
+    // Tentativo 2: ordini_tablet (schema identico a `ordini`)
+    try {
+      const refT = collection(db, "locali", "zappydemo", "ordini_tablet");
+      const qT = query(refT, where("tavolo", "==", String(tavoloId)), where("stato", "in", ["APERTO","aperto","in_corso"]));
+      const snapT = await getDocs(qT);
+      if (!snapT.empty) {
+        let items = [];
+        snapT.forEach(doc => {
+          const d = doc.data() || {};
+          (d.prodotti || []).forEach(p => items.push(p));
+        });
+        if (items.length) return items;
+      }
+    } catch(_) {}
+// Tentativo 2
     try {
       const ref2 = collection(db, "locali", "zappydemo", "ordini");
       // Nota: se non hai indici, toglilo/semplifica
@@ -3508,60 +3523,64 @@ document.addEventListener('DOMContentLoaded', function(){
 </script>
 <script type="module">
 import { getApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
-import { getFirestore, doc, setDoc, collection, addDoc } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
+import { getFirestore, doc, setDoc, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
 
 const db = getFirestore(getApp());
 
 function _sum(items){ try { return items.reduce((s,p)=> s + Number(p.prezzo||0)*Number(p.quantita||0), 0); } catch { return 0; } }
 
+// Salvataggio carrello -> ordini_tablet con lo stesso schema di 'ordini'
 window.zappySalvaCarrelloSuTavolo = async function(){
   const info = (window.tavoloCorrente) || null;
   const carrello = Array.isArray(window.carrello) ? window.carrello : [];
-  console.log("[ZAPPY] DEBUG info tavolo:", info);
-  console.log("[ZAPPY] DEBUG carrello items:", carrello);
   try{
     if(!info || !info.salaId || !info.tavoloId){
-      alert("Seleziona prima un tavolo."); 
+      alert("Seleziona prima un tavolo.");
       return false;
     }
-
-    const items = carrello.map(p => ({
-      nome: p?.nome ?? "",
-      prezzo: Number(p?.prezzo ?? 0),
-      quantita: Number(p?.quantita ?? 1),
-      immagine: p?.immagine ?? null
+    if(!carrello.length){
+      alert("Il carrello è vuoto.");
+      return false;
+    }
+    // normalizza prodotti
+    const prodotti = carrello.map(p => ({
+      nome: p?.nome ?? p?.name ?? "Prodotto",
+      quantita: Number(p?.quantita ?? p?.qty ?? 1) || 1,
+      prezzo: Number(p?.prezzo ?? p?.price ?? 0) || 0,
+      note: p?.note || ""
     }));
+    const totale = _sum(prodotti);
 
+    // 1) Stato corrente per tavolo (opzionale, utile alla UI del tavolo)
     const ordinePath = ["locali","zappydemo","sale",info.salaId,"tavoli",info.tavoloId,"stato","ordine_tablet"];
-    console.log("[ZAPPY] DEBUG setDoc path:", ordinePath.join("/"));
-
     await setDoc(doc(db, ...ordinePath), {
-      items,
+      prodotti,
       updatedAt: new Date().toISOString(),
       tavoloNome: info?.nome ?? null,
+      tavolo: String(info?.tavoloId || info?.nome || ""),
       source: "tablet",
       stato: "APERTO",
-      totale: _sum(items)
+      totale
     }, { merge: true });
 
-    const storicoPath = ["locali","zappydemo","ordini_tablet"];
-    console.log("[ZAPPY] DEBUG addDoc collection:", storicoPath.join("/"));
-    await addDoc(collection(db, ...storicoPath), {
-      tavoloId: info.tavoloId,
-      salaId: info.salaId,
-      tavoloNome: info?.nome ?? null,
-      items,
-      totale: _sum(items),
-      createdAt: new Date().toISOString(),
-      source: "tablet",
-      stato: "APERTO"
+    // 2) Storico ordini_tablet (schema identico a 'ordini')
+    await addDoc(collection(db, "locali","zappydemo","ordini_tablet"), {
+      data: new Date().toLocaleString("it-IT", { day:"2-digit", month:"long", year:"numeric", hour:"2-digit", minute:"2-digit" }),
+      prodotti,
+      stato: "APERTO",
+      tavolo: String(info?.tavoloId || info?.nome || ""),
+      totale,
+      salaId: info?.salaId,
+      tavoloId: info?.tavoloId,
+      createdAt: serverTimestamp(),
+      source: "tablet"
     });
 
-    console.log("[ZAPPY] Ordine tablet salvato OK 👍");
+    console.log("[ZAPPY] Ordine tablet salvato (schema = 'ordini') OK");
     return true;
   }catch(err){
     console.error("[ZAPPY] SAVE ERROR:", err);
-    alert("Errore durante il salvataggio su ordini_tablet.\n" + (err.code||"") + " " + (err.message||""));
+    alert("Errore durante il salvataggio su ordini_tablet. " + (err.code||"") + " " + (err.message||""));
     return false;
   }
 };
@@ -3940,6 +3959,119 @@ window.zappySalvaCarrelloSuTavolo = async function(){
       totEl.textContent = `Totale: € ${tot.toFixed(2)}`;
     };
   })();
+</script>
+
+
+<!-- Zappy: Migrazione automatica ordini_tablet verso schema ordini -->
+<script>
+(function(){
+  // Evita doppie esecuzioni
+  if (window.__ZAPPY_MIGRA_ORDINI_TABLET__) return;
+  window.__ZAPPY_MIGRA_ORDINI_TABLET__ = true;
+
+  // Attende che Firebase sia disponibile
+  function onReady(cb, tries=0){
+    if (window.firebase && (window.db || (window.firebase.firestore && window.firebase.firestore()))) {
+      try { cb(); } catch(e){ console.error("[Zappy] Migrazione errore init:", e); }
+      return;
+    }
+    if (tries > 60) { console.warn("[Zappy] Firebase non trovato per migrazione."); return; }
+    setTimeout(()=>onReady(cb, tries+1), 250);
+  }
+
+  onReady(async function(){
+    console.log("[Zappy] Avvio migrazione ordini_tablet → schema ordini");
+
+    // Supporta sia SDK v9 modulare che v8 compat
+    let _db = window.db;
+    let isV9 = !!(window.firebase && window.firebase.firestore && window.firebase.firestore.Timestamp && window.firebase.initializeApp == null);
+    // Se non esiste db globale, prova a leggere da firebase v8 compat
+    if (!_db && window.firebase && window.firebase.firestore) {
+      try { _db = window.firebase.firestore(); } catch(e){}
+    }
+
+    if (!_db) {
+      console.warn("[Zappy] db Firestore non disponibile. Salto migrazione.");
+      return;
+    }
+
+    const pathBase = ["locali","zappydemo","ordini_tablet"];
+
+    async function getAllDocs(){
+      try {
+        if (isV9 && window.getDocs && window.collection) {
+          const snap = await window.getDocs(window.collection(_db, ...pathBase));
+          return snap.docs.map(d => ({ id: d.id, ref: d.ref, data: d.data() }));
+        } else {
+          // v8 compat
+          const snap = await _db.collection(pathBase.join("/")).get();
+          return snap.docs.map(d => ({ id: d.id, ref: d.ref, data: d.data() }));
+        }
+      } catch (e){
+        console.error("[Zappy] Errore getAllDocs:", e);
+        return [];
+      }
+    }
+
+    async function updateDocRef(ref, payload){
+      try {
+        if (isV9 && window.updateDoc) return await window.updateDoc(ref, payload);
+        return await ref.update(payload);
+      } catch(e){ console.error("[Zappy] Errore updateDoc:", e); }
+    }
+
+    function toNumber(x){
+      const n = Number(x);
+      return isFinite(n) ? n : 0;
+    }
+
+    const docs = await getAllDocs();
+    let migrati = 0;
+    for (const d of docs){
+      const data = d.data || {};
+      // Se già in nuovo formato, salta
+      if (Array.isArray(data.prodotti)) continue;
+
+      // Vecchio formato atteso: data.items come oggetto {idProdotto: {...}} o array
+      if (data.items){
+        let list = [];
+        if (Array.isArray(data.items)){
+          list = data.items;
+        } else if (typeof data.items === "object"){
+          list = Object.values(data.items);
+        }
+
+        const prodotti = list.map(item => {
+          const nome = item.nome || item.title || item.prodotto || "Prodotto";
+          const quantita = toNumber(item.quantita || item.qty || 1);
+          const prezzo = toNumber(item.prezzo || item.price || item.costo || 0);
+          return {
+            nome,
+            quantita,
+            prezzo,
+            totale: +(prezzo * quantita).toFixed(2)
+          };
+        });
+
+        const totale = +(prodotti.reduce((s,p)=>s + toNumber(p.totale), 0).toFixed(2));
+
+        const payload = {
+          prodotti,
+          totale,
+          stato: data.stato || "APERTO",
+          tavolo: data.tavolo || data.table || data.tavoloId || "",
+          data: data.data || (new Date()).toISOString()
+        };
+
+        await updateDocRef(d.ref, payload);
+        migrati++;
+        console.log(`[Zappy] Migrato ordine tablet ${d.id}`);
+      }
+    }
+
+    console.log(`[Zappy] Migrazione completata. Documenti migrati: ${migrati}`);
+  });
+})();
 </script>
 
 </body>
