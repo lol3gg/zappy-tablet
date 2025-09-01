@@ -19,29 +19,27 @@
     *{box-sizing:border-box}html,body{height:100%}body{margin:0;background:var(--bg);font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto}
     /* Left app sidebar */
     .sidebar {
-  position: fixed;
-  inset: 0 auto 0 0;
-  width: 82px;
-  background: linear-gradient(180deg, var(--grad-a) 0%, var(--grad-b) 100%);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: space-between; /* distribuzione uniforme */
-  padding: 16px 10px;
-}
-
-.sidebar nav {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  height: 100%;
-  justify-content: space-between; /* primo in alto e ultimo in basso */
-  padding: 40px 0; /* margine alto/basso */
-}
-
-.sidebar nav button:nth-child(2) {
-  margin: auto 0; /* questo resta al centro verticale */
-}
+      position: fixed;
+      inset: 0 auto 0 0;
+      width: 82px;
+      background: linear-gradient(180deg, var(--grad-a) 0%, var(--grad-b) 100%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between; /* distribuzione uniforme */
+      padding: 16px 10px;
+    }
+    .sidebar nav {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      height: 100%;
+      justify-content: space-between; /* primo in alto e ultimo in basso */
+      padding: 40px 0; /* margine alto/basso */
+    }
+    .sidebar nav button:nth-child(2) {
+      margin: auto 0; /* questo resta al centro verticale */
+    }
 
     .brand{color:#fff;font-weight:700;margin:6px 0 12px}
     .nav-btn{width:56px;height:56px;border:0;border-radius:16px;background:radial-gradient(120% 120% at 20% 20%,rgba(255,255,255,.6),rgba(255,255,255,.15));box-shadow:0 10px 24px rgba(0,0,0,.15);cursor:pointer;display:grid;place-items:center;transition:transform .12s ease}
@@ -106,6 +104,71 @@
       .main{grid-template-columns:1fr}
       .order{position:fixed;inset:auto 0 0 82px;height:auto;max-height:70vh;border-left:0;border-top:1px solid var(--ring);border-radius:14px 14px 0 0}
     }
+
+    /* ===== Subtotale Modal ===== */
+    .modal-sub-backdrop{
+      position:fixed; inset:0; background:rgba(0,0,0,.45);
+      display:none; align-items:center; justify-content:center; z-index:1000;
+    }
+    .modal-sub{
+      width:min(720px,92vw); background:#fff; border-radius:24px; box-shadow:0 20px 60px rgba(0,0,0,.25);
+      padding:20px;
+    }
+    .modal-title{
+      text-align:center; font-weight:800; font-size:26px; margin:0 0 12px; color:#1e3a8a;
+    }
+    .sub-sum{
+      display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; margin-bottom:12px;
+    }
+    .sub-box{
+      border-radius:16px; padding:14px; background:linear-gradient(90deg, #c7f9e8, #cfe9ff);
+      text-align:center; border:1px solid #e6f0ff;
+    }
+    .sub-box .lab{font-weight:700; color:#334155; opacity:.9;}
+    .sub-box .val{font-weight:900; font-size:22px; color:#0b63f6;}
+    .pct-row{
+      display:flex; gap:10px; flex-wrap:wrap; margin:10px 0 14px;
+    }
+    .pct-btn{
+      border:0; padding:10px 14px; border-radius:14px; background:#eaf4ff; font-weight:800; cursor:pointer;
+      box-shadow:0 3px 10px rgba(0,0,0,.06);
+    }
+    .pad-grid{
+      display:grid; grid-template-columns:repeat(3, 1fr); gap:12px;
+    }
+    .pad-grid .key{
+      border:0; padding:16px 0; border-radius:14px; font-weight:900; font-size:18px; cursor:pointer; color:#fff;
+      background:#0b63f6; box-shadow:0 6px 18px rgba(12,72,180,.25);
+    }
+    .key.clear{ background:#ff7b7b; color:#fff;}
+    .confirm-bar{
+      margin-top:16px; border-radius:16px; padding:14px; text-align:center; font-weight:900; font-size:18px; color:#fff;
+      background:linear-gradient(90deg, #2ee6ab, #20b7f9); cursor:pointer; border:0;
+    }
+    .modal-close-x{
+      position:absolute; top:10px; right:16px; border:0; background:transparent; font-size:22px; cursor:pointer;
+      color:#64748b;
+    }
+  
+    /* ===== Modal Pagamento (AGGIUNTA) ===== */
+    .modal-pay-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;z-index:1100}
+    .modal-pay{width:min(920px,95vw);background:#fff;border-radius:28px;box-shadow:0 24px 70px rgba(0,0,0,.3);padding:24px;position:relative}
+    .pay-close{position:absolute;top:10px;right:16px;border:0;background:transparent;font-size:22px;color:#64748b;cursor:pointer}
+    .pay-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin:12px 0}
+    .kpi{border-radius:16px;padding:14px;text-align:center;font-weight:800}
+    .kpi.tot{background:#eef4ff}
+    .kpi.paid{background:#e7fbef}
+    .kpi.due{background:#ffe9ec}
+    .segmented{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:12px}
+    .segmented .seg{padding:12px 16px;border-radius:14px;border:1px solid #e6eefc;background:#f6fbff;font-weight:800;text-align:center;cursor:pointer}
+    .segmented .seg.active{background:linear-gradient(90deg,#00c6ff,#0072ff);color:#fff;border:none}
+    .tabs-pay{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin:8px 0 12px}
+    .tabs-pay button{padding:12px;border-radius:14px;border:1px solid #e6eefc;background:#f6fbff;font-weight:800;cursor:pointer}
+    .tabs-pay button.active{background:linear-gradient(90deg,#00c6ff,#0072ff);color:#fff;border:none}
+    .pay-methods{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+    .pay-card{background:#eef5ff;border:1px solid #e4edff;border-radius:16px;padding:24px;text-align:center;font-weight:800}
+    .pay-footer{margin-top:16px;background:#eef5ff;border-radius:14px;padding:16px;text-align:center;font-weight:800}
+
   </style>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -176,9 +239,98 @@
     </aside>
   </main>
 
+  <!-- ===== MODAL SUBTOTALE ===== -->
+  
+  <!-- ===== MODAL PAGAMENTO (AGGIUNTA) ===== -->
+  <div class="modal-pay-backdrop" id="payBackdrop" role="dialog" aria-modal="true" aria-labelledby="payTitle">
+    <div class="modal-pay">
+      <button class="pay-close" id="payClose" aria-label="Chiudi">✕</button>
+      <h2 class="modal-title" id="payTitle">Pagamento</h2>
+
+      <div class="segmented">
+        <div class="seg active" data-type="persona">👤 Persona</div>
+        <div class="seg" data-type="azienda">🏢 Azienda</div>
+      </div>
+
+      <div class="pay-row">
+        <div class="kpi tot">
+          Totale (€)<div style="font-size:22px" id="payTot">0,00</div>
+        </div>
+        <div class="kpi paid">
+          Pagato (€)<div style="font-size:22px" id="payPaid">0,00</div>
+        </div>
+        <div class="kpi due">
+          Da pagare (€)<div style="font-size:22px" id="payDue">0,00</div>
+        </div>
+      </div>
+
+      <div class="tabs-pay">
+        <button class="active" data-mode="totale">Totale</button>
+        <button data-mode="parziale">Parziale</button>
+        <button data-mode="romana">Alla Romana</button>
+        <button data-mode="separata">Separata</button>
+      </div>
+
+      <div class="pay-methods">
+        <div class="pay-card" id="btnCash">Contanti</div>
+        <div class="pay-card" id="btnCard">Carte</div>
+      </div>
+
+      <div class="pay-footer" id="btnOther">Altro</div>
+    </div>
+  </div>
+
+
+  <div class="modal-sub-backdrop" id="subBackdrop" role="dialog" aria-modal="true" aria-labelledby="subTitle">
+    <div class="modal-sub" style="position:relative">
+      <button class="modal-close-x" id="subCloseX" aria-label="Chiudi">✕</button>
+      <h2 class="modal-title" id="subTitle">Subtotale ( € )</h2>
+      <div class="sub-sum">
+        <div class="sub-box">
+          <div class="lab">Subtotale</div>
+          <div class="val" id="subAmount">0,00</div>
+        </div>
+        <div class="sub-box">
+          <div class="lab">Differenza</div>
+          <div class="val" id="subDiff">0,00</div>
+        </div>
+        <div class="sub-box">
+          <div class="lab">Totale</div>
+          <div class="val" id="subFinal">0,00</div>
+        </div>
+      </div>
+
+      <div class="pct-row">
+        <button class="pct-btn" data-pct="-0.2">-20%</button>
+        <button class="pct-btn" data-pct="-0.1">-10%</button>
+        <button class="pct-btn" data-pct="-0.05">-5%</button>
+        <button class="pct-btn" data-pct="0.05">+5%</button>
+        <button class="pct-btn" data-pct="0.10">+10%</button>
+        <button class="pct-btn" data-pct="0.20">+20%</button>
+      </div>
+
+      <div class="pad-grid">
+        <button class="key">1</button>
+        <button class="key">2</button>
+        <button class="key">3</button>
+        <button class="key">4</button>
+        <button class="key">5</button>
+        <button class="key">6</button>
+        <button class="key">7</button>
+        <button class="key">8</button>
+        <button class="key">9</button>
+        <button class="key">0</button>
+        <button class="key">00</button>
+        <button class="key clear">C</button>
+      </div>
+
+      <button class="confirm-bar" id="subConfirm">Conferma</button>
+    </div>
+  </div>
+
   <script type="module">
     import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
-    import { getFirestore, collection, getDocs, getDoc, doc, addDoc, serverTimestamp, updateDoc } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
+    import { getFirestore, collection, getDocs, getDoc, doc } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
 
     // ---- CONFIG ----
     const firebaseConfig = {
@@ -201,98 +353,58 @@
 
     // ---- STATE ----
     let currentSala = null;
-    let selectedTable = null;         // { salaId, tavoloId, tavoloNome }
-    let cameFromTable = false;        // set true if user clicked a tavolo-card to come to Home
-
-
+    let selectedTable = null;
+    let cameFromTable = false;
 
     // ---- NAV ----
-    // Hash-based navigation (robust)
     function navTo(view){
-      console.log("navTo chiamato con:", view);
       if (!view) view = 'home';
       if (location.hash !== '#' + view) {
         location.hash = '#' + view;
-        console.log('hash cambiato a', location.hash);
       } else {
-        // if same hash, still ensure switch
-        console.log('hash già uguale, forzo switchView');
         switchView(view);
       }
     }
     window.addEventListener('hashchange', () => {
       const v = (location.hash || '#home').replace('#','');
-      console.log('EVENTO hashchange →', v);
       switchView(v);
     });
-    
     $$(".nav-btn").forEach(b=>b.onclick=()=>navTo(b.dataset.view));
     function switchView(v){
-      console.log("switchView avviato con:", v);
       document.body.dataset.view = v;
       $$(".view").forEach(x=>x.classList.add("hidden"));
       $("#view-"+v).classList.remove("hidden");
-      if(v==="home") { loadHome(); showOrderPane(true); console.log('→ Vista Home attivata'); }
+      if(v==="home") { loadHome(); showOrderPane(true); }
       if(v==="tavoli") { loadTavoli(); showOrderPane(false); }
       if(v==="statistiche") { showOrderPane(false); }
-      // header button visibility handled outside depending on context
       updateHeaderButton();
     }
-    // initial render delayed to after helpers are defined
 
-
-    // ---- CONTEXT: selected table & route ----
-        function markCameFromTable(on){
-      cameFromTable = !!on;
-      updateHeaderButton();
-    }
+    // ---- CONTEXT ----
+    function markCameFromTable(on){ cameFromTable = !!on; updateHeaderButton(); }
     function updateHeaderButton(){
-  const btn = $("#btnAddToTable");
-  const cancel = $("#btnCancelTable");
-  const badge = $("#modeBadge");
-  const inHome = !$("#view-home").classList.contains("hidden");
-  const show = inHome && cameFromTable && !!selectedTable;
-  btn.classList.toggle("hidden", !show);
-  cancel.classList.toggle("hidden", !show);
-  badge.textContent = show ? (selectedTable?.tavoloNome || "Tavolo") : "Vendita diretta";
-  if(!btn._wired){
-    btn._wired = true;
-    btn.onclick = ()=>{
-      try{ carrello = []; renderCart(); }catch(e){}
-      selectedTable = null; markCameFromTable(false); updateHeaderButton();
-    };
-  }
-  if(!cancel._wired){
-    cancel._wired = true;
-    cancel.onclick = ()=>{
-      try{ carrello = []; renderCart(); }catch(e){}
-      selectedTable = null; markCameFromTable(false); updateHeaderButton();
-    };
-  }
-}
-
-
-    // Show/Hide order pane (visible only on Home)
+      const btn = $("#btnAddToTable");
+      const cancel = $("#btnCancelTable");
+      const badge = $("#modeBadge");
+      const inHome = !$("#view-home").classList.contains("hidden");
+      const show = inHome && cameFromTable && !!selectedTable;
+      btn.classList.toggle("hidden", !show);
+      cancel.classList.toggle("hidden", !show);
+      badge.textContent = show ? (selectedTable?.tavoloNome || "Tavolo") : "Vendita diretta";
+      if(!btn._wired){
+        btn._wired = true;
+        btn.onclick = ()=>{ try{ carrello = []; renderCart(); }catch(e){} selectedTable = null; markCameFromTable(false); updateHeaderButton(); };
+      }
+      if(!cancel._wired){
+        cancel._wired = true;
+        cancel.onclick = ()=>{ try{ carrello = []; renderCart(); }catch(e){} selectedTable = null; markCameFromTable(false); updateHeaderButton(); };
+      }
+    }
     function showOrderPane(show){
       const pane = document.getElementById('orderPane');
       if (!pane) return;
       pane.classList.toggle('hidden', !show);
     }
-    
-    function goToHomeFromTable(){
-      // Force navigation to Home after a table selection (robust)
-      const go = () => {
-        document.body.dataset.view = 'home';
-        $$(".view").forEach(x=>x.classList.add("hidden"));
-        $("#view-home").classList.remove("hidden");
-        showOrderPane(true);
-        loadHome();         // ensure products are rendered updateHeaderButton();
-};
-      // Defer to next frame to avoid reflows or competing handlers
-      requestAnimationFrame(()=>{ setTimeout(go, 0); });
-    }
-
-    // Initial render via hash
     navTo((location.hash||"#home").replace("#",""));
 
     // ---- CARRELLO (UI only) ----
@@ -301,7 +413,7 @@
       const list = $("#cartList");
       const empty = $("#emptyCart");
       list.innerHTML = "";
-      if(!carrello.length){ empty.style.display="block"; } else { empty.style.display="none"; }
+      empty.style.display = carrello.length ? "none":"block";
       carrello.forEach((p, idx)=>{
         const row = document.createElement("div");
         row.className = "cart-item";
@@ -329,13 +441,7 @@
       updateHeaderButton();
     }
 
-    // ---- HOME (READ) ----
-    async function loadHome(){
-      await renderCategorieGruppi();   // chip in alto
-      await renderSezioni();           // sezioni con prodotti sotto (panini, fritti, ...)
-    }
-
-    // Crea i chip in base al doc 'menu/categorie' (come nella tua struttura)
+    async function loadHome(){ await renderCategorieGruppi(); await renderSezioni(); }
     async function renderCategorieGruppi(){
       const wrap = $("#cats"); wrap.innerHTML="";
       const docRef = doc(db, "locali", LOCALE, "menu", "categorie");
@@ -356,8 +462,6 @@
         });
       });
     }
-
-    // Crea le sezioni a lista (come nello screenshot: panini, fritti, pizze, ...)
     async function renderSezioni(){
       const root = $("#sections"); root.innerHTML="";
       const docRef = doc(db, "locali", LOCALE, "menu", "categorie");
@@ -397,30 +501,23 @@
             <button>Aggiungi</button>
           `;
           card.querySelector("button").onclick = ()=> addToCart({
-            id: d.id,
-            nome: (p.nome && (p.nome.it||p.nome.en||p.nome)) || d.id,
-            prezzo: Number(p.prezzo)||0,
-            categoria: key
+            id: d.id, nome: (p.nome && (p.nome.it||p.nome.en||p.nome)) || d.id, prezzo: Number(p.prezzo)||0, categoria: key
           });
           grid.appendChild(card);
         });
-
         root.appendChild(sec);
       }
     }
-
     function scrollToSection(key){
       const el = document.getElementById("sec-"+key);
       if(!el) return;
       const top = el.getBoundingClientRect().top + window.scrollY - 90;
       window.scrollTo({top, behavior:"smooth"});
       $$(".cat-chip").forEach(x=>x.classList.remove("active"));
-      // set active chip by text match
       const chip = Array.from(document.querySelectorAll(".cat-chip")).find(c => (c.textContent||'').toLowerCase() === (el.querySelector(".section-label").textContent||'').toLowerCase());
       if (chip) chip.classList.add("active");
     }
 
-    // ---- TAVOLI (READ) ----
     async function loadTavoli(){
       $("#saleTabs").innerHTML=""; $("#tavoliGrid").innerHTML="";
       const saleSnap=await getDocs(collection(db,"locali",LOCALE,"sale")).catch(()=>({docs:[]}));
@@ -438,7 +535,7 @@
       const grid=$("#tavoliGrid"); grid.innerHTML="";
       const snap=await getDocs(collection(db,"locali",LOCALE,"sale",salaId,"tavoli")).catch(()=>({docs:[]}));
       if(!snap.docs.length){ grid.innerHTML="<p>Nessun tavolo</p>"; return; }
-      const parseNum = v => { const m=String(v||"").match(/\\d+/); return m?parseInt(m[0],10):0; };
+      const parseNum = v => { const m=String(v||"").match(/\d+/); return m?parseInt(m[0],10):0; };
       snap.docs.slice().sort((a,b)=>parseNum(a.data().nome||a.id)-parseNum(b.data().nome||b.id)).forEach(docu=>{
         const d=docu.data();
         const occ=d?.stato==="occupato"||d?.occupato===true;
@@ -452,65 +549,157 @@
           </div>
         `;
         card.onclick=()=>{
-  selectedTable = { salaId, tavoloId: docu.id, tavoloNome: d?.nome||docu.id };
-  markCameFromTable(true);
-  // Apri popup intermedio
-  const t = document.getElementById('popupTavoloTitle');
-  if(t) t.textContent = 'Tavolo ' + (d?.nome||docu.id);
-  const tot = document.getElementById('popupTavoloTotale');
-  if(tot) tot.textContent = '0,00 €';
-  const popup = document.getElementById('popupTavolo');
-  if(popup) popup.style.display='flex';
-};
+          selectedTable = { salaId, tavoloId: docu.id, tavoloNome: d?.nome||docu.id };
+          markCameFromTable(true);
+          selectedTable = { salaId, tavoloId: docu.id, tavoloNome: d?.nome||docu.id };
+          markCameFromTable(true);
+          const t = document.getElementById('popupTavoloTitle');
+          if(t) t.textContent = 'Tavolo ' + (d?.nome||docu.id);
+          const tot = document.getElementById('popupTavoloTotale');
+          if(tot) tot.textContent = '0,00 €';
+          const popup = document.getElementById('popupTavolo');
+          if(popup) popup.style.display='flex';
+        };
         grid.appendChild(card);
       });
     }
 
-    // Buttons (placeholders for now)
-    $("#btnSubtotale").onclick = ()=> alert("Subtotale (solo UI).");
-    $("#btnPagamento").onclick = ()=> alert("Pagamento (solo UI).");
+    // ===== Subtotale popup logic (UI only) =====
+    const fmtEU = n => (Number(n)||0).toLocaleString('it-IT', {minimumFractionDigits:2, maximumFractionDigits:2});
+    function cartTotal(){ return carrello.reduce((s,p)=> s + (p.prezzo||0)*(p.quantita||1), 0); }
+
+    const subBackdrop = $("#subBackdrop");
+    const subAmount = $("#subAmount");
+    const subDiff = $("#subDiff");
+    const subFinal = $("#subFinal");
+    let subInput = "";  // stringa digitata
+    let baseTot = 0;
+
+    function openSub(){
+      baseTot = cartTotal();
+      subInput = "";
+      subAmount.textContent = fmtEU(0);
+      subDiff.textContent = fmtEU(0);
+      subFinal.textContent = fmtEU(baseTot);
+      subBackdrop.style.display = "flex";
+    }
+    function closeSub(){ subBackdrop.style.display = "none"; }
+
+    function recompute(){
+      const entered = Number(subInput.replace(',', '.')) || 0;
+      subAmount.textContent = fmtEU(entered);
+      const diff = entered - baseTot;
+      subDiff.textContent = fmtEU(diff);
+      subFinal.textContent = fmtEU(entered); // nel mock il totale coincide col subtotale scelto
+    }
+
+    // Bind buttons
+    $("#btnSubtotale").onclick = openSub;
+    $("#subConfirm").onclick = closeSub;
+    $("#subCloseX").onclick = closeSub;
+    subBackdrop.addEventListener('click', (e)=>{ if(e.target===subBackdrop) closeSub(); });
+
+    $$(".key").forEach(k=>{
+      k.addEventListener('click', ()=>{
+        const t = k.textContent.trim();
+        if(k.classList.contains('clear')){ subInput=""; }
+        else { subInput += t; }
+        recompute();
+      });
+    });
+    $$(".pct-btn").forEach(b=>{
+      b.addEventListener('click', ()=>{
+        const pct = Number(b.dataset.pct);
+        const val = baseTot * (1 + pct);
+        subInput = String(Math.round(val*100)/100);
+        recompute();
+      });
+    });
+
+    // Buttons (placeholders for others)
+    
+    // ===== Pagamento modal (AGGIUNTA) =====
+    const payBackdrop = $("#payBackdrop");
+    function openPay(){
+      const tot = cartTotal();
+      $("#payTot").textContent = fmtEU(tot);
+      const paid = 0;
+      $("#payPaid").textContent = fmtEU(paid);
+      $("#payDue").textContent = fmtEU(tot - paid);
+      payBackdrop.style.display = "flex";
+    }
+    function closePay(){ payBackdrop.style.display = "none"; }
+
+    $("#btnPagamento").onclick = openPay;
+    $("#payClose").onclick = closePay;
+    payBackdrop.addEventListener('click', (e)=>{ if(e.target===payBackdrop) closePay(); });
+
+    $$(".segmented .seg").forEach(seg=>seg.addEventListener('click',()=>{
+      $$(".segmented .seg").forEach(s=>s.classList.remove('active'));
+      seg.classList.add('active');
+    }));
+    $$(".tabs-pay button").forEach(b=>b.addEventListener('click',()=>{
+      $$(".tabs-pay button").forEach(x=>x.classList.remove('active'));
+      b.classList.add('active');
+    }));
+    $("#btnCash").onclick=()=>alert("Contanti");
+    $("#btnCard").onclick=()=>alert("Carte");
+    $("#btnOther").onclick=()=>alert("Altro");
+    
     $("#btnPrepara").onclick = ()=> alert("Prepara (solo UI).");
+
     // First render of cart
     renderCart();
   </script>
 
-<!-- Popup Tavolo -->
-<div id="popupTavolo" style="display:none;position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.4);align-items:center;justify-content:center;">
-  <div style="background:#fff;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.2);width:min(480px,90%);padding:16px;">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-      <h3 id="popupTavoloTitle" style="margin:0;font-size:18px;font-weight:700;">Tavolo</h3>
-      <button id="popupTavoloClose" class="btn secondary">Chiudi</button>
-    </div>
-    <div id="popupTavoloContent" style="padding:8px 0;color:#555;">Nessun prodotto nel tavolo (tablet).</div>
-    <div style="margin-top:12px;display:flex;justify-content:space-between;align-items:center;">
-      <div style="font-weight:700;">Totale: <span id="popupTavoloTotale">0,00 €</span></div>
-      <div style="display:flex;gap:8px;">
-        <button id="popupTavoloAdd" class="btn">Aggiungi prodotti</button>
-        <button id="popupTavoloPay" class="btn">Vai al pagamento</button>
+  <!-- ===== POPUP TAVOLO (REINSERITO) ===== -->
+  <div id="popupTavolo" style="display:none;position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.4);align-items:center;justify-content:center;">
+    <div style="background:#fff;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.2);width:min(480px,90%);padding:16px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <h3 id="popupTavoloTitle" style="margin:0;font-size:18px;font-weight:700;">Tavolo</h3>
+        <button id="popupTavoloClose" class="btn secondary">Chiudi</button>
+      </div>
+      <div id="popupTavoloContent" style="padding:8px 0;color:#555;">Nessun prodotto nel tavolo (tablet).</div>
+      <div style="margin-top:12px;display:flex;justify-content:space-between;align-items:center;">
+        <div style="font-weight:700;">Totale: <span id="popupTavoloTotale">0,00 €</span></div>
+        <div style="display:flex;gap:8px;">
+          <button id="popupTavoloAdd" class="btn">Aggiungi prodotti</button>
+          <button id="popupTavoloPay" class="btn">Vai al pagamento</button>
+        </div>
       </div>
     </div>
   </div>
-</div>
+
+
+  <script>
+  // === HANDLER POPUP TAVOLO (reinseriti) ===
+  (function(){
+    const $ = (s,r=document)=>r.querySelector(s);
+    const pop = $('#popupTavolo');
+    const btnClose = $('#popupTavoloClose');
+    const btnAdd = $('#popupTavoloAdd');
+    const btnPay = $('#popupTavoloPay');
+    if(btnClose){
+      btnClose.onclick = ()=>{
+        if(pop) pop.style.display='none';
+        try{ selectedTable = null; markCameFromTable(false); updateHeaderButton(); }catch(e){}
+      };
+    }
+    if(btnAdd){
+      btnAdd.onclick = ()=>{
+        if(pop) pop.style.display='none';
+        try { navTo('home'); } catch(e) { location.hash = '#home'; }
+        try { markCameFromTable(true); updateHeaderButton(); } catch(e) {}
+      };
+    }
+    if(btnPay){
+      btnPay.onclick = ()=>{
+        if(pop) pop.style.display='none';
+        alert('Funzione pagamento da implementare');
+      };
+    }
+  })();
+  </script>
 
 </body>
-
-<script>
-document.getElementById('popupTavoloClose').onclick = ()=>{
-  document.getElementById('popupTavolo').style.display='none';
-  selectedTable = null; markCameFromTable(false); updateHeaderButton();
-};
-
-document.getElementById('popupTavoloAdd').onclick = ()=>{
-  const popup = document.getElementById('popupTavolo');
-  if(popup) popup.style.display='none';
-  try { navTo('home'); } catch(e) { location.hash = '#home'; }
-  try { markCameFromTable(true); updateHeaderButton(); } catch(e) {}
-};
-
-document.getElementById('popupTavoloPay').onclick = ()=>{
-  document.getElementById('popupTavolo').style.display='none';
-  alert('Funzione pagamento da implementare'); // segnaposto
-};
-</script>
-
 </html>
