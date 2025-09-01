@@ -1,15 +1,162 @@
-
 <!DOCTYPE html>
-
 <html lang="it">
 <head>
-<meta charset="utf-8"/>
-<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>Zappy Vendita Banco</title>
-<script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
-    import { getFirestore, collection, getDocs, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Zappy – Read‑Only + Carrello</title>
+  <style>
+    :root{
+      --grad-a:#00c6ff;
+      --grad-b:#7d2ae8;
+      --bg:#f2f7ff;
+      --card:#ffffff;
+      --muted:#6b7280;
+      --ink:#0f172a;
+      --ring:#e5e7f9;
+      --shadow:0 10px 24px rgba(0,0,0,.06);
+      --radius:16px;
+    }
+    *{box-sizing:border-box}html,body{height:100%}body{margin:0;background:var(--bg);font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto}
+    /* Left app sidebar */
+    .sidebar{position:fixed;inset:0 auto 0 0;width:82px;background:linear-gradient(180deg,var(--grad-a) 0%,var(--grad-b) 100%);display:flex;flex-direction:column;align-items:center;padding:16px 10px;gap:16px}
+    .brand{color:#fff;font-weight:700;margin:6px 0 12px}
+    .nav-btn{width:56px;height:56px;border:0;border-radius:16px;background:radial-gradient(120% 120% at 20% 20%,rgba(255,255,255,.6),rgba(255,255,255,.15));box-shadow:0 10px 24px rgba(0,0,0,.15);cursor:pointer;display:grid;place-items:center;transition:transform .12s ease}
+    .nav-btn:hover{transform:translateY(-2px)}.icon{font-size:22px}
+    /* Main grid: content + order pane */
+    .main{margin-left:82px;min-height:100vh;display:grid;grid-template-columns:1fr 360px}
+    .header{grid-column:1/-1;height:56px;display:flex;align-items:center;padding:0 16px;border-bottom:1px solid rgba(0,0,0,.06);background:#f8fbff;position:sticky;top:0;z-index:5}
+    .locale-badge{background:#eef4ff;border:1px solid #dfe8ff;color:#163a8a;padding:6px 10px;border-radius:999px;font-weight:600}
+    .spacer{flex:1}
+    .views{display:contents}
+    .view{padding:16px}
+    .hidden{display:none}
+    .muted{opacity:.7;color:var(--muted)}
+    /* Home products area (left column) */
+    .cats-wrap{position:sticky;top:72px;background:linear-gradient(90deg,rgba(255,255,255,.6),rgba(255,255,255,0));padding:8px 8px;border-radius:14px;margin-bottom:8px}
+    .cats{display:flex;flex-wrap:wrap;gap:8px}
+    .cat-chip{padding:10px 14px;border-radius:999px;border:1px solid #e3e8ff;background:#fff;cursor:pointer;font-weight:700}
+    .cat-chip.active{background:#111;color:#fff;border-color:#111}
+    .section-label{margin:12px 2px 8px;font-weight:800;text-transform:lowercase;letter-spacing:.4px;color:#1f2937}
+    .products{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px}
+    .card{background:#fff;border:1px solid #eef2ff;border-radius:16px;padding:12px;display:flex;flex-direction:row;gap:10px;align-items:center;box-shadow:var(--shadow)}
+    .card .img{width:48px;height:48px;border-radius:12px;border:1px solid #eef2ff;background:#fff;display:grid;place-items:center;overflow:hidden}
+    .card .img img{width:100%;height:100%;object-fit:cover}
+    .card .meta{flex:1;min-width:0}
+    .card .meta .name{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .card .price{font-weight:700}
+    .card button{border:0;padding:8px 10px;border-radius:12px;background:#111;color:#fff;cursor:pointer;font-weight:700}
+    /* Sale / Tavoli */
+    .sale-tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+    .sale-tabs button{padding:8px 12px;border-radius:10px;border:1px solid #e3e8ff;background:#fff;font-weight:600;cursor:pointer}
+    .sale-tabs button.active{background:#111;color:#fff;border-color:#111}
+    .tavoli-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+    .tavolo-card{display:flex;gap:10px;align-items:center;padding:12px;border-radius:16px;border:1px solid #e2e8ff;background:linear-gradient(180deg,rgba(255,255,255,.9),rgba(255,255,255,.7));box-shadow:var(--shadow);cursor:pointer;transition:transform .08s ease}
+    .tavolo-card:hover{transform:translateY(-1px)}
+    .tavolo-badge{min-width:42px;height:42px;border-radius:12px;border:1px solid #e5e7f9;display:grid;place-items:center;font-weight:800;background:#fff}
+    .tavolo-meta{flex:1}
+    .tavolo-name{font-weight:800;margin:0}
+    .tavolo-stato{font-weight:800}
+    /* Right order panel */
+    .order{position:sticky;top:72px;height:calc(100vh - 72px);display:flex;flex-direction:column;border-left:1px solid var(--ring);background:#fafcff}
+    /* show only in Home */
+    .order{display:none}
+    body[data-view='home'] .order{display:flex}
+    .order .head{padding:14px 14px 6px;display:flex;align-items:center;gap:8px}
+    .order .head h3{margin:0;font-size:18px}
+    .order .head .right{margin-left:auto;display:flex;gap:8px;align-items:center}
+    .pill{font-size:13px;padding:6px 10px;border-radius:999px;background:#eef4ff;border:1px solid #dfe8ff;color:#163a8a;font-weight:700}
+    .btn-add{border:0;padding:8px 12px;border-radius:12px;background:linear-gradient(180deg,var(--grad-a),var(--grad-b));color:#fff;font-weight:800;cursor:pointer;box-shadow:0 10px 24px rgba(0,0,0,.15)}
+    .order .body{flex:1;overflow:auto;padding:10px 14px}
+    .order .empty{color:var(--muted);margin:8px}
+    .cart-item{display:grid;grid-template-columns:1fr auto auto;align-items:center;gap:10px;padding:10px;border:1px solid #eef2ff;background:#fff;border-radius:14px;margin-bottom:8px}
+    .cart-item .tit{font-weight:700}
+    .qty{display:flex;align-items:center;gap:6px}
+    .qty button{width:28px;height:28px;border-radius:8px;border:1px solid #e5e7f9;background:#fff;cursor:pointer;font-weight:800}
+    .cart-item .price{font-weight:800}
+    .order .foot{border-top:1px solid var(--ring);padding:12px 14px;display:flex;flex-direction:column;gap:10px;background:#fff}
+    .tot-row{display:flex;justify-content:space-between;font-weight:800}
+    .btn-row{display:flex;gap:8px;flex-wrap:wrap}
+    .btn{border:0;padding:10px 12px;border-radius:12px;background:linear-gradient(180deg,var(--grad-a),var(--grad-b));color:#fff;font-weight:800;cursor:pointer;box-shadow:0 10px 24px rgba(0,0,0,.15)}
+    .btn.secondary{background:#eef2ff;color:#111;border:1px solid #dee3ff;box-shadow:none;font-weight:700}
+    @media (max-width: 1080px){
+      .main{grid-template-columns:1fr}
+      .order{position:fixed;inset:auto 0 0 82px;height:auto;max-height:70vh;border-left:0;border-top:1px solid var(--ring);border-radius:14px 14px 0 0}
+    }
+  </style>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="brand">Zappy</div>
+    <nav>
+      <button class="nav-btn" data-view="home"><span class="icon">🏠</span></button>
+      <button class="nav-btn" data-view="tavoli"><span class="icon">📍</span></button>
+      <button class="nav-btn" data-view="statistiche"><span class="icon">📊</span></button>
+    </nav>
+  </aside>
 
+  <main class="main">
+    <header class="header">
+      <div class="locale-badge"><span id="localeLabel">—</span></div>
+      <div class="spacer"></div>
+    </header>
+
+    <div class="views">
+      <!-- LEFT: HOME -->
+      <section class="view" id="view-home">
+        <div class="cats-wrap">
+          <div id="cats"></div>
+        </div>
+        <div id="sections"></div>
+      </section>
+
+      <!-- LEFT: TAVOLI -->
+      <section class="view hidden" id="view-tavoli">
+        <h2>Tavoli</h2>
+        <div id="saleTabs" class="sale-tabs"></div>
+        <div id="tavoliGrid" class="tavoli-grid"></div>
+        <p class="muted">Solo lettura da Firestore.</p>
+      </section>
+
+      <!-- LEFT: STATISTICHE -->
+      <section class="view hidden" id="view-statistiche">
+        <h2>Statistiche</h2>
+        <p class="muted">Solo lettura (placeholder).</p>
+      </section>
+    </div>
+
+    <!-- RIGHT: ORDER PANEL -->
+    <aside class="order hidden" id="orderPane">
+      <div class="head">
+        <h3>Nuovo ordine</h3>
+        <div class="right">
+          <span class="pill" id="modeBadge">Vendita diretta</span>
+          <button class="btn-add hidden" id="btnAddToTable">Aggiungi al tavolo</button>
+          <button class="btn-add hidden" id="btnCancelTable">Annulla</button>
+        </div>
+      </div>
+      <div class="body">
+        <div class="empty" id="emptyCart">Nessun prodotto</div>
+        <div id="cartList"></div>
+      </div>
+      <div class="foot">
+        <div class="tot-row"><span>Totale:</span><span>€ <span id="totale">0,00</span></span></div>
+        <div class="btn-row">
+          <button class="btn secondary" id="btnSubtotale">Subtotale</button>
+          <button class="btn secondary" id="btnPagamento">Pagamento</button>
+          <button class="btn" id="btnPrepara">Prepara</button>
+        </div>
+      </div>
+    </aside>
+  </main>
+
+  <script type="module">
+    import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
+    import { getFirestore, collection, getDocs, getDoc, doc, addDoc, serverTimestamp, updateDoc } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
+
+    // ---- CONFIG ----
     const firebaseConfig = {
       apiKey: "AIzaSyC-yyxd1dxn16hx9AUZDKgFpPLWl-YfWnHE",
       authDomain: "zappy-24d29.firebaseapp.com",
@@ -18,3949 +165,328 @@
       messagingSenderId: "356775808247",
       appId: "1:356775808247:web:a5395430ad3dc9aa7c17f2"
     };
-
     const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
     const db = getFirestore(app);
-// === FUNZIONI TAVOLI ===
-async function contaTotaleTavoli() {
-  let total = 0;
-  const saleRef = collection(db, "locali", "zappydemo", "sale");
-  const saleSnap = await getDocs(saleRef);
-  for (const sala of saleSnap.docs) {
-    const tavoliRef = collection(db, "locali", "zappydemo", "sale", sala.id, "tavoli");
-    const tavoliSnap = await getDocs(tavoliRef);
-    total += tavoliSnap.size;
-  }
-  return total;
-}
-function parseNum(name){ const m = String(name||'').match(/(\d+)/); return m?parseInt(m[1],10):Number.MAX_SAFE_INTEGER; }
-function renderTavoloCard(tavoloDoc){
-const d = tavoloDoc.data ? tavoloDoc.data() : tavoloDoc;
-  const nome = (d && d.nome) || tavoloDoc.id || "Tavolo";
-  const occupato = d && (d.occupato===true || d.stato==='occupato');
-  const statoTxt = occupato ? 'Occupato' : 'Libero';
-  const statoClr = occupato ? '#d63031' : '#00b894';
-  const div = document.createElement('div');
-  div.className = 'tavolo';
-  div.innerHTML = `<h3>${nome}</h3><p>€ 0,00</p><p style="color:${statoClr}; font-weight:700;">${statoTxt}</p>`;
-  
-  // ricavo salaId e tavoloId dal path del documento
-  let salaId = null, tavoloId = tavoloDoc.id || null;
-  try { salaId = tavoloDoc.ref.parent.parent.id; } catch(_) {}
-  div.onclick = () => apriPopupOrdiniTavolo({ salaId, tavoloId, nome });
 
-  return div;
-}
-async function caricaTavoliDiSala(salaId){
-  const grid = document.querySelector('.tavoli-grid');
-  if(!grid) return;
-  grid.innerHTML = '';
-  try{
-    const tavoliRef = collection(db, "locali", "zappydemo", "sale", salaId, "tavoli");
-    const snap = await getDocs(tavoliRef);
-    const arr = snap.docs.slice().sort((a,b)=>parseNum((a.data().nome||a.id)) - parseNum((b.data().nome||b.id)));
-    arr.forEach(doc=> grid.appendChild(renderTavoloCard(doc)));
-    aggiornaConteggio();
-  }catch(e){ console.error("Errore sala", salaId, e); }
-}
-async function caricaTuttiTavoli(){
-  const grid = document.querySelector('.tavoli-grid');
-  if(!grid) return;
-  grid.innerHTML = '';
-  try{
-    const saleSnap = await getDocs(collection(db, "locali", "zappydemo", "sale"));
-    let all = [];
-    for(const sala of saleSnap.docs){
-      const tavoliSnap = await getDocs(collection(db, "locali", "zappydemo", "sale", sala.id, "tavoli"));
-      tavoliSnap.forEach(doc=> all.push(doc));
-    }
-    all.sort((a,b)=>parseNum((a.data().nome||a.id)) - parseNum((b.data().nome||b.id)));
-    all.forEach(doc=> grid.appendChild(renderTavoloCard(doc)));
-    aggiornaConteggio();
-  }catch(e){ console.error("Errore TUTTI", e); }
-}
-async function aggiornaConteggio(){
-  const visibili = document.querySelectorAll('.tavoli-grid .tavolo').length;
-  const el = document.getElementById('conteggioTavoli');
-  if(!el) return;
-  try{
-    const tot = await contaTotaleTavoli();
-    el.textContent = `Tavoli visibili: ${visibili}/${tot}`;
-  }catch(_){ el.textContent = `Tavoli visibili: ${visibili}`; }
-}
-
-  
-    
-async function caricaSale() {
-  const saleContainer = document.querySelector(".sezioni-tavoli");
-  if (!saleContainer) return;
-  saleContainer.innerHTML = '';
-
-  // Bottone TUTTI
-  const tuttiBtn = document.createElement('button');
-  tuttiBtn.className = 'btn-sezione-tavoli active-tavoli';
-  tuttiBtn.textContent = 'TUTTI';
-  tuttiBtn.onclick = async () => {
-    document.querySelectorAll('.btn-sezione-tavoli').forEach(b=>b.classList.remove('active-tavoli'));
-    tuttiBtn.classList.add('active-tavoli');
-    await caricaTuttiTavoli();
-  
-  ensureBackButton();
-};
-  saleContainer.appendChild(tuttiBtn);
-
-  try {
-    const saleRef = collection(db, "locali", "zappydemo", "sale");
-    const saleSnap = await getDocs(saleRef);
-    const nomiSale = saleSnap.docs.map(d=>d.id).sort();
-    nomiSale.forEach(id => {
-      const btn = document.createElement('button');
-      btn.className = 'btn-sezione-tavoli';
-      btn.textContent = id;
-      btn.onclick = async () => {
-        document.querySelectorAll('.btn-sezione-tavoli').forEach(b=>b.classList.remove('active-tavoli'));
-        btn.classList.add('active-tavoli');
-        await caricaTavoliDiSala(id);
-      };
-      saleContainer.appendChild(btn);
-    });
-  } catch (err) {
-    console.error("❌ Errore caricamento sale:", err);
-  }
-
-  // Carico TUTTI al primo avvio sulla pagina Tavoli
-  await caricaTuttiTavoli();
-}
-
-    window.addEventListener("DOMContentLoaded", async () => {
-    const localeCorrente = "zappydemo"; // intercambiabile per ogni cliente
-    await caricaSale();
-
-    const categorieDocRef = doc(db, "locali", localeCorrente, "menu", "categorie");
-    const categorieDocSnap = await getDoc(categorieDocRef);
-
-    if (categorieDocSnap.exists()) {
-        const data = categorieDocSnap.data();
-        let categorie = [];
-
-        for (const key in data) {
-            if (Array.isArray(data[key])) {
-                categorie = categorie.concat(data[key]);
-            }
-        }
-
-        const categorieContainer = document.querySelector(".categorie");
-        const sezioniProdottiContainer = document.querySelector(".sezioni-prodotti");
-
-        categorie.forEach(async (categoria) => {
-            // Crea pulsante dinamico
-            const btn = document.createElement("button");
-            const categoriaNome = typeof categoria === 'string' ? categoria : categoria.originale;
-
-btn.textContent = categoriaNome;
-btn.onclick = () => {
-    document.getElementById(categoriaNome).scrollIntoView({ behavior: 'smooth' });
-};
-categorieContainer.appendChild(btn);
-
-const sezioneDiv = document.createElement("div");
-sezioneDiv.className = "sezione";
-sezioneDiv.id = categoriaNome;
-sezioneDiv.innerHTML = `<h2>${categoriaNome}</h2><div class="prodotti" data-categoria="${categoriaNome}"></div>`;
-sezioniProdottiContainer.appendChild(sezioneDiv);
-
-const prodottiRef = collection(db, "locali", localeCorrente, "menu", categoriaNome, "prodotti");
-
-            // Carica prodotti per categoria
-            //const prodottiRef = collection(db, "locali", localeCorrente, "menu", categoria, "prodotti");
-            const snapshot = await getDocs(prodottiRef);
-            const container = sezioneDiv.querySelector(".prodotti");
-
-            snapshot.forEach(doc => {
-                const data = doc.data();
-                const div = document.createElement("div");
-div.className = "card";
-div.innerHTML = `
-    <img src="${data.immagineUrl}" alt="${data.nome.it}" />
-    <h4>${data.nome.it}</h4>
-    <p>€${data.prezzo.toFixed(2)}</p>
-`;
-container.appendChild(div);
-            });
-        });
-    } else {
-        console.error("Documento categorie non trovato in Firebase.");
-    }
-});
-
-function toggleModalita(mode) {
-  document.querySelectorAll('.modalita-section').forEach(s => s.style.display = 'none');
-  document.querySelectorAll('.row.metodi button').forEach(b => b.classList.remove('attivo'));
-  document.querySelector('.row.metodi button.' + mode).classList.add('attivo');
-  document.getElementById('modalita-' + mode).style.display = 'block';
-  if (mode === 'romana') aggiornaAllaRomana();
-  if (mode === 'separa') caricaProdottiSepara();
-}
-
-function modificaParziale(delta) {
-  const input = document.getElementById('input-parziale');
-  let val = parseInt(input.value) + delta;
-  if (val < 0) val = 0;
-  input.value = val;
-}
-
-function modificaPersone(delta) {
-  const input = document.getElementById('input-persone');
-  let val = parseInt(input.value) + delta;
-  if (val < 1) val = 1;
-  input.value = val;
-  aggiornaAllaRomana();
-}
-
-function aggiornaAllaRomana() {
-  const persone = parseInt(document.getElementById('input-persone').value);
-  const totale = carrello.reduce((sum, p) => sum + p.prezzo * p.quantita, 0);
-  const diviso = totale / persone;
-  document.getElementById('romana-importo').innerText = diviso.toFixed(2).replace('.', ',');
-}
-
-function caricaProdottiSepara() {
-  const container = document.getElementById('separa-prodotti');
-  container.innerHTML = '';
-  carrello.forEach((p, i) => {
-    const el = document.createElement('div');
-    el.textContent = `${p.nome} x${p.quantita} (€${(p.prezzo*p.quantita).toFixed(2)})`;
-    el.onclick = () => {
-      el.classList.toggle('selected');
-      aggiornaSelezioneProdotti();
-    };
-    container.appendChild(el);
-  });
-}
-
-function aggiornaSelezioneProdotti() {
-  const selected = document.querySelectorAll('#separa-prodotti .selected');
-  const box = document.getElementById('selezionati-prodotti');
-  let totale = 0;
-  box.innerHTML = '';
-  selected.forEach(sel => {
-    box.appendChild(sel.cloneNode(true));
-    const match = sel.textContent.match(/€([0-9]+\.[0-9]+)/);
-    if (match) totale += parseFloat(match[1]);
-  });
-  document.getElementById('separa-totale').innerText = totale.toFixed(2).replace('.', ',');
-}
-
-document.addEventListener('DOMContentLoaded', () => {
-  const modes = ['totale', 'parziale', 'romana', 'separa'];
-  modes.forEach(mode => {
-    const btn = document.querySelector('.row.metodi button.' + mode);
-    if (btn) {
-      btn.onclick = () => toggleModalita(mode);
-    }
-  });
-});
-</script>
-<style>
-
-.categorie button {
-    padding: 10px 16px;
-    border: none;
-    border-radius: 12px;
-    cursor: pointer;
-    background: #39D9A9;
-    color: white;
-    font-weight: 600;
-    font-size: 15px;
-    transition: background 0.2s ease, transform 0.1s ease;
-}
-.categorie button:hover {
-    background: #2cbf93;
-    transform: scale(1.05);
-}
-
-    body { margin: 0; font-family: 'Segoe UI', sans-serif; display: flex; height: 100vh; }
-    .sidebar { width: 80px; background: #0061A8; display: flex; flex-direction: column; padding: 10px; color: white; }
-    .content { flex: 1; display: flex; flex-direction: column; padding: 20px; background: #F5F9FF; }
-    .categorie { display: flex; gap: 10px; margin-bottom: 20px; }
-    .categorie button { padding: 10px; border: none; background: #E5F2FF; border-radius: 8px; cursor: pointer; }
-    .prodotti { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; }
-    .card { background: white; border-radius: 10px; padding: 10px; text-align: center; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-    .card img { width: 100%; height: 90px; object-fit: cover; border-radius: 6px; }
-    .carrello { width: 280px; background: #fff; border-left: 2px solid #ddd; padding: 20px; display: flex; flex-direction: column; }
-    .footer { margin-top: auto; }
-    .btn-paga { background: #007BFF; color: white; padding: 12px; border: none; width: 100%; border-radius: 8px; cursor: pointer; font-weight: bold; }
-  
-.card.selected {
-  opacity: 0.6;
-  border: 2px solid #007BFF;
-}
-
-.card {
-  position: relative;
-}
-.card .quantita-badge {
-  position: absolute;
-  top: 6px;
-  right: 8px;
-  background: #007BFF;
-  color: white;
-  font-size: 13px;
-  padding: 2px 6px;
-  border-radius: 12px;
-  display: none;
-}
-.card.selected .quantita-badge {
-  display: block;
-}
-
-.card .remove-one {
-  position: absolute;
-  bottom: 6px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: #ff4d4f;
-  color: white;
-  font-size: 14px;
-  padding: 2px 6px;
-  border-radius: 50%;
-  cursor: pointer;
-  display: none;
-}
-.card.selected .remove-one {
-  display: block;
-}
-
-.card .remove-one {
-  opacity: 1 !important;
-  font-weight: bold;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-}
-
-.order-item .azioni {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-left: 10px;
-}
-.order-item button {
-  background: #007BFF;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  padding: 2px 6px;
-  font-size: 14px;
-  cursor: pointer;
-}
-.order-item button.rimuovi {
-  background: #ff4d4f;
-}
-
-.card {
-  display: flex;
-  align-items: center;
-  padding: 10px;
-  gap: 10px;
-  background: #e9f1fd;
-  border-radius: 16px;
-  box-shadow: 0 3px 6px rgba(0,0,0,0.05);
-  transition: all 0.2s ease;
-  position: relative;
-}
-.card img {
-  width: 50px;
-  height: 50px;
-  object-fit: cover;
-  border-radius: 10px;
-}
-.card h4 {
-  font-size: 16px;
-  margin: 0;
-}
-.card p {
-  font-size: 14px;
-  color: #666;
-  margin: 2px 0 0;
-}
-
-.card {
-  min-width: 180px;
-  height: 80px;
-}
-.card h4 {
-  font-size: 18px;
-  font-weight: 600;
-  margin-bottom: 4px;
-  color: #333;
-}
-.card p {
-  font-size: 16px;
-  color: #444;
-}
-
-.prodotti {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 14px;
-  align-items: flex-start;
-  justify-content: flex-start;
-}
-
-.sezione {
-  margin-bottom: 40px;
-}
-.sezione h2 {
-  font-size: 22px;
-  margin: 20px 0 10px;
-  color: #222;
-}
-.sezioni-prodotti {
-  overflow-y: auto;
-  padding-right: 10px;
-}
-
-.popup-pagamento {
-  position: fixed;
-  top: 0; left: 0;
-  width: 100vw;
-  height: 100vh;
-  background: rgba(0,0,0,0.5);
-  display: none;
-  justify-content: center;
-  align-items: center;
-  z-index: 999;
-}
-.popup-pagamento .popup-content {
-  width: 90%;
-  max-width: 700px;
-  background: white;
-  border-radius: 30px;
-  padding: 20px;
-  font-family: 'Segoe UI';
-}
-.popup-header {
-  text-align: right;
-}
-.popup-header .chiudi {
-  background: transparent;
-  font-size: 20px;
-  border: none;
-  cursor: pointer;
-}
-.popup-grid .row {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 12px;
-  flex-wrap: wrap;
-}
-.popup-grid .row button {
-  flex: 1;
-  margin: 5px;
-  padding: 12px;
-  border-radius: 12px;
-  border: none;
-  background: #eaf4ff;
-  font-weight: bold;
-}
-.popup-grid .row button.attivo {
-  background: linear-gradient(to right, #00c6ff, #0072ff);
-  color: white;
-}
-.popup-grid .grande {
-  height: 60px;
-  font-size: 18px;
-}
-.popup-grid .altro {
-  width: 100%;
-  background: #eaf4ff;
-  font-weight: bold;
-  padding: 14px;
-  border-radius: 12px;
-}
-.popup-grid .totale, .pagato, .da-pagare {
-  flex: 1;
-  text-align: center;
-  padding: 10px;
-  border-radius: 12px;
-}
-.popup-grid .totale { background: #eef4ff; }
-.popup-grid .pagato { background: #e7fbee; }
-.popup-grid .da-pagare { background: #ffe8ec; }
-
-.modalita-section {
-  background: #f5faff;
-  border-radius: 12px;
-  padding: 10px;
-  margin-bottom: 12px;
-}
-#separa-prodotti div {
-  background: white;
-  border: 1px solid #ccc;
-  border-radius: 10px;
-  padding: 6px 10px;
-  cursor: pointer;
-}
-#separa-prodotti div.selected {
-  background: #007BFF;
-  color: white;
-}
-
-
-/* Sidebar gradient */
-.sidebar {
-    background: linear-gradient(180deg, #39D9A9, #00B4FF, #6A00FF);
-}
-
-/* Pulsante Prepara gradient */
-.prepara {
-    background: linear-gradient(135deg, #39D9A9, #00B4FF, #6A00FF);
-    color: white;
-    font-weight: bold;
-    border: none;
-    border-radius: 12px;
-    padding: 12px;
-    cursor: pointer;
-    transition: transform 0.1s ease, box-shadow 0.2s ease;
-}
-.prepara:hover {
-    transform: scale(1.05);
-    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
-}
-
-/* Riquadri categorie in alto con gradient */
-.categorie button {
-    padding: 10px 16px;
-    border: none;
-    border-radius: 12px;
-    cursor: pointer;
-    background: linear-gradient(135deg, #39D9A9, #00B4FF, #6A00FF);
-    color: white;
-    font-weight: 600;
-    font-size: 15px;
-    transition: background 0.3s ease, transform 0.1s ease;
-}
-.categorie button:hover {
-    transform: scale(1.05);
-    background: linear-gradient(135deg, #2cbf93, #009de0, #5800cc);
-}
-
-
-.card {
-    border: 1px solid rgba(57, 217, 169, 0.4); /* verde acqua trasparente sottile */
-    transition: box-shadow 0.2s ease, transform 0.1s ease;
-}
-.card:hover {
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-    transform: translateY(-2px);
-}
-
-.sezione h2 {
-    font-size: 20px;
-    font-weight: 600;
-    color: white;
-    background: linear-gradient(135deg, #007BFF, #0050D8);
-    padding: 10px 16px;
-    border-radius: 12px;
-    width: fit-content;
-    margin: 0 auto 12px auto;
-    text-transform: capitalize;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.15);
-}
-
-.sezione h2 {
-    font-size: 16px;
-    font-weight: 500;
-    color: white;
-    background: #0050D8;
-    padding: 6px 14px;
-    border-top-left-radius: 12px;
-    border-bottom-left-radius: 12px;
-    border-top-right-radius: 0;
-    border-bottom-right-radius: 0;
-    width: 100%;
-    margin: 0 0 10px 0;
-    text-transform: lowercase;
-    box-shadow: none;
-}
-
-.sezione h2 {
-    font-size: 16px;
-    font-weight: 500;
-    color: white;
-    background: #0050D8;
-    padding: 6px 14px;
-    border-top-left-radius: 12px;
-    border-bottom-left-radius: 12px;
-    border-top-right-radius: 12px;
-    border-bottom-right-radius: 12px;
-    display: inline-block;
-    margin: 0 0 10px 0;
-    text-transform: lowercase;
-    box-shadow: none;
-}
-
-.sezione h2 {
-    font-size: 16px;
-    font-weight: 500;
-    color: white;
-    background: #0050D8;
-    padding: 6px 14px;
-    border-top-left-radius: 12px;
-    border-bottom-left-radius: 12px;
-    border-top-right-radius: 12px;
-    border-bottom-right-radius: 12px;
-    width: 50%;
-    max-width: 400px;
-    margin: 0 0 10px 0;
-    text-transform: lowercase;
-    box-shadow: none;
-}
-
-.sezione h2 {
-    font-size: 16px;
-    font-weight: 500;
-    color: white;
-    background: #39D9A9;
-    padding: 6px 14px;
-    border-top-left-radius: 12px;
-    border-bottom-left-radius: 12px;
-    border-top-right-radius: 12px;
-    border-bottom-right-radius: 12px;
-    width: 50%;
-    max-width: 400px;
-    margin: 0 0 10px 0;
-    text-transform: lowercase;
-    box-shadow: none;
-}
-
-.sezione h2 {
-    font-size: 16px;
-    font-weight: 500;
-    color: white;
-    background: linear-gradient(135deg, #39D9A9, #00B4FF, #6A00FF);
-    padding: 6px 14px;
-    border-top-left-radius: 12px;
-    border-bottom-left-radius: 12px;
-    border-top-right-radius: 12px;
-    border-bottom-right-radius: 12px;
-    width: 50%;
-    max-width: 400px;
-    margin: 0 0 10px 0;
-    text-transform: lowercase;
-    box-shadow: none;
-}
-
-.sezione h2 {
-    font-size: 16px;
-    font-weight: 500;
-    color: white;
-    background: linear-gradient(to right, #39D9A9 0%, #00B4FF 50%, #6A00FF 80%, rgba(106,0,255,0) 100%);
-    padding: 6px 14px;
-    border-top-left-radius: 12px;
-    border-bottom-left-radius: 12px;
-    border-top-right-radius: 0;
-    border-bottom-right-radius: 0;
-    max-width: 400px;
-    margin: 0 0 10px 0;
-    text-transform: lowercase;
-    box-shadow: none;
-}
-
-.sezione h2 {
-    font-size: 16px;
-    font-weight: 500;
-    color: white;
-    background: linear-gradient(to right, #39D9A9 0%, #00B4FF 40%, #6A00FF 70%, rgba(106,0,255,0) 100%);
-    padding: 6px 14px;
-    border-top-left-radius: 12px;
-    border-bottom-left-radius: 12px;
-    border-top-right-radius: 0;
-    border-bottom-right-radius: 0;
-    width: 60%;
-    max-width: 480px;
-    margin: 0 0 10px 0;
-    text-transform: lowercase;
-    box-shadow: none;
-}
-
-.sezione h2 {
-    font-size: 16px;
-    font-weight: 500;
-    color: white;
-    background: linear-gradient(to right, #7FE8CE 0%, #66CCFF 40%, #B388FF 70%, rgba(179,136,255,0) 100%);
-    padding: 6px 14px;
-    border-top-left-radius: 12px;
-    border-bottom-left-radius: 12px;
-    border-top-right-radius: 0;
-    border-bottom-right-radius: 0;
-    width: 60%;
-    max-width: 480px;
-    margin: 0 0 10px 0;
-    text-transform: lowercase;
-    box-shadow: none;
-}
-
-.order-item .azioni {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    margin-left: 10px;
-}
-.order-item button {
-    background: #007BFF;
-    color: white;
-    border: none;
-    border-radius: 6px;
-    padding: 2px 6px;
-    font-size: 14px;
-    cursor: pointer;
-}
-.order-item button.btn-subtract {
-    background: #ff4d4f;
-}
-
-.sezione h2 {
-    font-size: 16px;
-    font-weight: 500;
-    color: white;
-    background: linear-gradient(to right, #A8F0DB 0%, #99D9FF 40%, #C7AFFF 70%, rgba(199,175,255,0) 100%);
-    padding: 6px 14px;
-    border-top-left-radius: 12px;
-    border-bottom-left-radius: 12px;
-    border-top-right-radius: 0;
-    border-bottom-right-radius: 0;
-    width: 60%;
-    max-width: 480px;
-    margin: 0 0 10px 0;
-    text-transform: lowercase;
-    box-shadow: none;
-}
-
-.popup-subtotale {
-  position: fixed;
-  top: 0; left: 0;
-  width: 100vw; height: 100vh;
-  background: rgba(0,0,0,0.4);
-  display: none;
-  justify-content: center;
-  align-items: center;
-  z-index: 9999;
-  animation: fadeIn 0.3s ease;
-}
-.popup-content-subtotale {
-  background: rgba(255,255,255,0.8);
-  backdrop-filter: blur(12px);
-  border-radius: 20px;
-  padding: 20px;
-  width: 90%;
-  max-width: 400px;
-  box-shadow: 0 8px 30px rgba(0,0,0,0.1);
-  text-align: center;
-  animation: scaleIn 0.3s ease;
-}
-.popup-content-subtotale h3 {
-  font-size: 22px;
-  margin-bottom: 10px;
-  color: #0061A8;
-}
-.totali-subtotale {
-  display: flex;
-  justify-content: space-between;
-  background: linear-gradient(135deg, #A8F0DB, #99D9FF);
-  padding: 10px;
-  border-radius: 12px;
-  margin-bottom: 10px;
-}
-.totali-subtotale div {
-  flex: 1;
-}
-.totali-subtotale span {
-  display: block;
-  font-size: 12px;
-  color: #333;
-}
-.totali-subtotale strong {
-  font-size: 18px;
-  color: #007BFF;
-}
-.sconti-rapidi {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  justify-content: center;
-  margin-bottom: 10px;
-}
-.sconti-rapidi button {
-  flex: 1;
-  min-width: 60px;
-  background: #e0f7fa;
-  border: none;
-  border-radius: 8px;
-  padding: 8px;
-  font-size: 14px;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-.sconti-rapidi button:hover {
-  background: #b2ebf2;
-}
-.tastierino-subtotale {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
-  margin-bottom: 12px;
-}
-.tastierino-subtotale button {
-  background: #007BFF;
-  color: white;
-  border: none;
-  border-radius: 12px;
-  padding: 14px;
-  font-size: 18px;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-.tastierino-subtotale button:hover {
-  background: #005BB5;
-}
-.tastierino-subtotale .reset {
-  background: #FF6B6B;
-}
-.conferma-subtotale {
-  background: linear-gradient(135deg, #39D9A9, #00B4FF);
-  color: white;
-  border: none;
-  border-radius: 12px;
-  padding: 12px;
-  font-size: 18px;
-  width: 100%;
-  cursor: pointer;
-  transition: background 0.3s;
-}
-.conferma-subtotale:hover {
-  background: linear-gradient(135deg, #2CBF93, #009DE0);
-}
-@keyframes fadeIn {
-  from { opacity: 0; } to { opacity: 1; }
-}
-@keyframes scaleIn {
-  from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; }
-}
-
-/* === Pulsante "Aggiungi al tavolo" (visibile solo in modalità assegnazione tavolo) === */
-#btn-aggiungi-al-tavolo {
-  position: fixed;
-  right: 16px;
-  bottom: 82px; /* poco sopra il carrello fisso */
-  display: none;
-  z-index: 2100;
-  padding: 12px 16px;
-  border: none;
-  border-radius: 16px;
-  font-weight: 800;
-  cursor: pointer;
-  background: linear-gradient(135deg, #39D9A9, #00B4FF, #6A00FF);
-  color: #fff;
-  box-shadow: 0 10px 22px rgba(0,0,0,0.18);
-}
-
-</style>
-<style>
-.barrato {
-    text-decoration: line-through;
-    color: #999;
-}
-
-/* === Pulsante "Aggiungi al tavolo" (visibile solo in modalità assegnazione tavolo) === */
-#btn-aggiungi-al-tavolo {
-  position: fixed;
-  right: 16px;
-  bottom: 82px; /* poco sopra il carrello fisso */
-  display: none;
-  z-index: 2100;
-  padding: 12px 16px;
-  border: none;
-  border-radius: 16px;
-  font-weight: 800;
-  cursor: pointer;
-  background: linear-gradient(135deg, #39D9A9, #00B4FF, #6A00FF);
-  color: #fff;
-  box-shadow: 0 10px 22px rgba(0,0,0,0.18);
-}
-
-</style>
-<style>
-.sidebar {
-    display: flex;
-    flex-direction: column;
-    height: 100vh;
-    max-height: 100vh;
-}
-.sidebar-header {
-    flex: 0 0 auto;
-    padding: 14px;
-    font-weight: 600;
-    font-size: 20px;
-}
-.order-list {
-    flex: 1 1 auto;
-    overflow-y: auto;
-    padding: 8px 10px 0 10px;
-}
-.order-item {
-    padding: 8px 6px;
-    border-bottom: 1px solid #e0e0e0;
-}
-.order-item:last-child {
-    border-bottom: none;
-}
-.sidebar-totale {
-    flex: 0 0 auto;
-    position: sticky;
-    bottom: 0;
-    background: #ffffffee;
-    backdrop-filter: blur(8px);
-    padding: 12px 10px;
-    border-top: 1px solid #ddd;
-    box-shadow: 0 -3px 10px rgba(0,0,0,0.07);
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    z-index: 10;
-}
-.totale strong {
-    font-size: 18px;
-}
-button, .button {
-    font-size: 16px !important;
-    padding: 10px !important;
-    border-radius: 10px !important;
-}
-
-/* === Pulsante "Aggiungi al tavolo" (visibile solo in modalità assegnazione tavolo) === */
-#btn-aggiungi-al-tavolo {
-  position: fixed;
-  right: 16px;
-  bottom: 82px; /* poco sopra il carrello fisso */
-  display: none;
-  z-index: 2100;
-  padding: 12px 16px;
-  border: none;
-  border-radius: 16px;
-  font-weight: 800;
-  cursor: pointer;
-  background: linear-gradient(135deg, #39D9A9, #00B4FF, #6A00FF);
-  color: #fff;
-  box-shadow: 0 10px 22px rgba(0,0,0,0.18);
-}
-
-</style>
-<style>
-#btnHome:hover, #btnTavoli:hover {
-    transform: scale(1.08);
-    box-shadow: 0 6px 14px rgba(0,0,0,0.2);
-}
-
-/* === Pulsante "Aggiungi al tavolo" (visibile solo in modalità assegnazione tavolo) === */
-#btn-aggiungi-al-tavolo {
-  position: fixed;
-  right: 16px;
-  bottom: 82px; /* poco sopra il carrello fisso */
-  display: none;
-  z-index: 2100;
-  padding: 12px 16px;
-  border: none;
-  border-radius: 16px;
-  font-weight: 800;
-  cursor: pointer;
-  background: linear-gradient(135deg, #39D9A9, #00B4FF, #6A00FF);
-  color: #fff;
-  box-shadow: 0 10px 22px rgba(0,0,0,0.18);
-}
-
-</style>
-<style>
-.riepilogo-order {
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    position: relative;
-    height: 100%;
-}
-.ordine-footer {
-    position: fixed;
-    bottom: 0;
-    right: 0;
-    width: 300px;
-    background: white;
-    border-top: 1px solid #ddd;
-    box-shadow: 0 -4px 10px rgba(0,0,0,0.1);
-    padding: 12px;
-    z-index: 9999;
-}
-
-/* === Pulsante "Aggiungi al tavolo" (visibile solo in modalità assegnazione tavolo) === */
-#btn-aggiungi-al-tavolo {
-  position: fixed;
-  right: 16px;
-  bottom: 82px; /* poco sopra il carrello fisso */
-  display: none;
-  z-index: 2100;
-  padding: 12px 16px;
-  border: none;
-  border-radius: 16px;
-  font-weight: 800;
-  cursor: pointer;
-  background: linear-gradient(135deg, #39D9A9, #00B4FF, #6A00FF);
-  color: #fff;
-  box-shadow: 0 10px 22px rgba(0,0,0,0.18);
-}
-
-</style>
-<style>
-#paginaTavoli {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 30px 20px;
-}
-#paginaTavoli h2 {
-    font-size: 28px;
-    font-weight: 700;
-    background: linear-gradient(135deg, #39D9A9, #00B4FF, #6A00FF);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    margin-bottom: 30px;
-}
-.tavoli-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-    gap: 15px;
-    width: 100%;
-    max-width: 900px;
-    justify-items: center;
-}
-.tavolo {
-    background: rgba(255, 255, 255, 0.15);
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.3);
-    border-radius: 16px;
-    padding: 15px;
-    width: 100%;
-    max-width: none;
-    text-align: center;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-    transition: transform 0.2s;
-}
-.tavolo:hover {
-    transform: scale(1.05);
-}
-.tavolo h3 {
-    font-size: 18px;
-    font-weight: 600;
-    color: #000;
-}
-.tavolo p {
-    margin: 4px 0;
-    color: #333;
-    font-size: 14px;
-}
-.tavolo p:last-child {
-    color: #39D9A9;
-    font-weight: 600;
-}
-#paginaTavoli button {
-    margin-top: 30px;
-    background: linear-gradient(135deg, #39D9A9, #00B4FF, #6A00FF);
-    color: white;
-    border: none;
-    border-radius: 12px;
-    padding: 12px 24px;
-    font-size: 16px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: transform 0.2s, box-shadow 0.2s;
-}
-#paginaTavoli button:hover {
-    transform: scale(1.05);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-}
-
-/* === Pulsante "Aggiungi al tavolo" (visibile solo in modalità assegnazione tavolo) === */
-#btn-aggiungi-al-tavolo {
-  position: fixed;
-  right: 16px;
-  bottom: 82px; /* poco sopra il carrello fisso */
-  display: none;
-  z-index: 2100;
-  padding: 12px 16px;
-  border: none;
-  border-radius: 16px;
-  font-weight: 800;
-  cursor: pointer;
-  background: linear-gradient(135deg, #39D9A9, #00B4FF, #6A00FF);
-  color: #fff;
-  box-shadow: 0 10px 22px rgba(0,0,0,0.18);
-}
-
-</style>
-<style>
-#paginaTavoli {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 40px 20px;
-    background: #f5f7fa;
-    min-height: 100vh;
-}
-#paginaTavoli h2 {
-    font-size: 28px;
-    font-weight: 700;
-    background: linear-gradient(135deg, #39D9A9, #00B4FF, #6A00FF);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    margin-bottom: 30px;
-}
-.tavoli-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-    gap: 15px;
-    width: 100%;
-    max-width: 900px;
-    justify-items: center;
-}
-.tavolo {
-    background: rgba(255, 255, 255, 0.25);
-    backdrop-filter: blur(12px);
-    border: 1px solid rgba(255, 255, 255, 0.3);
-    border-radius: 16px;
-    padding: 20px;
-    width: 100%;
-    max-width: none;
-    text-align: center;
-    box-shadow: 0 8px 20px rgba(0,0,0,0.08);
-    transition: transform 0.2s, box-shadow 0.2s;
-}
-.tavolo:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 12px 24px rgba(0,0,0,0.12);
-}
-.tavolo h3 {
-    font-size: 18px;
-    font-weight: 700;
-    color: #333;
-}
-.tavolo p {
-    margin: 6px 0;
-    color: #333;
-    font-size: 14px;
-}
-.tavolo p:last-child {
-    color: #39D9A9;
-    font-weight: 700;
-}
-#paginaTavoli button {
-    margin-top: 40px;
-    background: linear-gradient(135deg, #39D9A9, #00B4FF, #6A00FF);
-    color: white;
-    border: none;
-    border-radius: 12px;
-    padding: 14px 28px;
-    font-size: 16px;
-    font-weight: 700;
-    cursor: pointer;
-    transition: transform 0.2s, box-shadow 0.2s;
-}
-#paginaTavoli button:hover {
-    transform: scale(1.06);
-    box-shadow: 0 6px 16px rgba(0,0,0,0.15);
-}
-
-/* === Pulsante "Aggiungi al tavolo" (visibile solo in modalità assegnazione tavolo) === */
-#btn-aggiungi-al-tavolo {
-  position: fixed;
-  right: 16px;
-  bottom: 82px; /* poco sopra il carrello fisso */
-  display: none;
-  z-index: 2100;
-  padding: 12px 16px;
-  border: none;
-  border-radius: 16px;
-  font-weight: 800;
-  cursor: pointer;
-  background: linear-gradient(135deg, #39D9A9, #00B4FF, #6A00FF);
-  color: #fff;
-  box-shadow: 0 10px 22px rgba(0,0,0,0.18);
-}
-
-</style>
-<style>
-#paginaTavoli {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 40px 20px;
-    background: #f0f4f8;
-    min-height: 100vh;
-}
-#paginaTavoli h2 {
-    font-size: 28px;
-    font-weight: 700;
-    background: linear-gradient(135deg, #39D9A9, #00B4FF, #6A00FF);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    margin-bottom: 30px;
-}
-.tavoli-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-    gap: 48px;
-    width: 100%;
-    max-width: 900px;
-    justify-items: center;
-}
-.tavolo {
-    background: linear-gradient(135deg, rgba(57, 217, 169, 0.15), rgba(0, 180, 255, 0.15));
-    border-radius: 18px;
-    padding: 16px;
-    width: 100%;
-    max-width: none;
-    text-align: center;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-    transition: transform 0.2s, box-shadow 0.2s;
-    position: relative;
-}
-.tavolo:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 8px 20px rgba(0,0,0,0.12);
-}
-.tavolo svg {
-    width: 32px;
-    height: 32px;
-    fill: #39D9A9;
-    margin-bottom: 6px;
-}
-.tavolo h3 {
-    font-size: 16px;
-    font-weight: 700;
-    color: #333;
-    margin: 6px 0;
-}
-.tavolo p {
-    margin: 4px 0;
-    color: #333;
-    font-size: 14px;
-}
-.tavolo p:last-child {
-    color: #39D9A9;
-    font-weight: 700;
-}
-#paginaTavoli button {
-    margin-top: 40px;
-    background: linear-gradient(135deg, #39D9A9, #00B4FF, #6A00FF);
-    color: white;
-    border: none;
-    border-radius: 12px;
-    padding: 14px 28px;
-    font-size: 16px;
-    font-weight: 700;
-    cursor: pointer;
-    transition: transform 0.2s, box-shadow 0.2s;
-}
-#paginaTavoli button:hover {
-    transform: scale(1.06);
-    box-shadow: 0 6px 16px rgba(0,0,0,0.15);
-}
-
-/* === Pulsante "Aggiungi al tavolo" (visibile solo in modalità assegnazione tavolo) === */
-#btn-aggiungi-al-tavolo {
-  position: fixed;
-  right: 16px;
-  bottom: 82px; /* poco sopra il carrello fisso */
-  display: none;
-  z-index: 2100;
-  padding: 12px 16px;
-  border: none;
-  border-radius: 16px;
-  font-weight: 800;
-  cursor: pointer;
-  background: linear-gradient(135deg, #39D9A9, #00B4FF, #6A00FF);
-  color: #fff;
-  box-shadow: 0 10px 22px rgba(0,0,0,0.18);
-}
-
-</style>
-<style>
-html, body {
-    height: 100%;
-    overflow: hidden;
-}
-
-.content {
-    overflow-y: auto;
-    height: 100vh;
-}
-
-/* === Pulsante "Aggiungi al tavolo" (visibile solo in modalità assegnazione tavolo) === */
-#btn-aggiungi-al-tavolo {
-  position: fixed;
-  right: 16px;
-  bottom: 82px; /* poco sopra il carrello fisso */
-  display: none;
-  z-index: 2100;
-  padding: 12px 16px;
-  border: none;
-  border-radius: 16px;
-  font-weight: 800;
-  cursor: pointer;
-  background: linear-gradient(135deg, #39D9A9, #00B4FF, #6A00FF);
-  color: #fff;
-  box-shadow: 0 10px 22px rgba(0,0,0,0.18);
-}
-
-</style>
-<style>
-.btn-sezione-tavoli {
-    padding: 10px 16px;
-    border: none;
-    border-radius: 12px;
-    cursor: pointer;
-    background: linear-gradient(135deg, #39D9A9, #00B4FF, #6A00FF);
-    color: white;
-    font-weight: 600;
-    font-size: 15px;
-    transition: background 0.3s ease, transform 0.1s ease;
-}
-.btn-sezione-tavoli:hover {
-    transform: scale(1.05);
-    background: linear-gradient(135deg, #2cbf93, #009de0, #5800cc);
-}
-
-/* === Pulsante "Aggiungi al tavolo" (visibile solo in modalità assegnazione tavolo) === */
-#btn-aggiungi-al-tavolo {
-  position: fixed;
-  right: 16px;
-  bottom: 82px; /* poco sopra il carrello fisso */
-  display: none;
-  z-index: 2100;
-  padding: 12px 16px;
-  border: none;
-  border-radius: 16px;
-  font-weight: 800;
-  cursor: pointer;
-  background: linear-gradient(135deg, #39D9A9, #00B4FF, #6A00FF);
-  color: #fff;
-  box-shadow: 0 10px 22px rgba(0,0,0,0.18);
-}
-
-</style>
-<style>
-.active-tavoli {
-    box-shadow: 0 0 0 3px rgba(57, 217, 169, 0.5);
-}
-
-/* === Pulsante "Aggiungi al tavolo" (visibile solo in modalità assegnazione tavolo) === */
-#btn-aggiungi-al-tavolo {
-  position: fixed;
-  right: 16px;
-  bottom: 82px; /* poco sopra il carrello fisso */
-  display: none;
-  z-index: 2100;
-  padding: 12px 16px;
-  border: none;
-  border-radius: 16px;
-  font-weight: 800;
-  cursor: pointer;
-  background: linear-gradient(135deg, #39D9A9, #00B4FF, #6A00FF);
-  color: #fff;
-  box-shadow: 0 10px 22px rgba(0,0,0,0.18);
-}
-
-</style>
-<style>
-#popupTavolo {
-    position: fixed;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background: rgba(0,0,0,0.5);
-    display: none;
-    align-items: center;
-    justify-content: center;
-    z-index: 1000;
-}
-#popupTavoloContent {
-    background: white;
-    border-radius: 16px;
-    padding: 24px;
-    width: 320px;
-    text-align: center;
-    font-family: sans-serif;
-}
-#popupTavoloContent h3 {
-    margin-bottom: 12px;
-    font-size: 20px;
-}
-#popupTavoloContent p {
-    margin-bottom: 20px;
-    font-size: 16px;
-    color: #333;
-}
-#popupTavoloContent button {
-    background: #39D9A9;
-    color: white;
-    border: none;
-    padding: 12px 20px;
-    border-radius: 12px;
-    font-size: 16px;
-    cursor: pointer;
-}
-#popupTavoloContent button:hover {
-    background: #2cbf93;
-}
-
-/* === Pulsante "Aggiungi al tavolo" (visibile solo in modalità assegnazione tavolo) === */
-#btn-aggiungi-al-tavolo {
-  position: fixed;
-  right: 16px;
-  bottom: 82px; /* poco sopra il carrello fisso */
-  display: none;
-  z-index: 2100;
-  padding: 12px 16px;
-  border: none;
-  border-radius: 16px;
-  font-weight: 800;
-  cursor: pointer;
-  background: linear-gradient(135deg, #39D9A9, #00B4FF, #6A00FF);
-  color: #fff;
-  box-shadow: 0 10px 22px rgba(0,0,0,0.18);
-}
-
-</style>
-<style>
-#btnAggiungiAlTavolo {
-    position: fixed;
-    bottom: 90px;
-    right: 20px;
-    background: #39D9A9;
-    color: white;
-    border: none;
-    padding: 14px 20px;
-    border-radius: 12px;
-    font-weight: 600;
-    font-size: 16px;
-    display: none;
-    cursor: pointer;
-    z-index: 1000;
-}
-#btnAggiungiAlTavolo:hover {
-    background: #2cbf93;
-}
-
-/* === Pulsante "Aggiungi al tavolo" (visibile solo in modalità assegnazione tavolo) === */
-#btn-aggiungi-al-tavolo {
-  position: fixed;
-  right: 16px;
-  bottom: 82px; /* poco sopra il carrello fisso */
-  display: none;
-  z-index: 2100;
-  padding: 12px 16px;
-  border: none;
-  border-radius: 16px;
-  font-weight: 800;
-  cursor: pointer;
-  background: linear-gradient(135deg, #39D9A9, #00B4FF, #6A00FF);
-  color: #fff;
-  box-shadow: 0 10px 22px rgba(0,0,0,0.18);
-}
-
-</style>
-<style>
-/* === ZAPPY: OVERRIDE GRIGLIA TAVOLI (ultimo blocco) === */
-#paginaTavoli .tavoli-grid {
-  display: grid !important;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)) !important;
-  gap: 20px !important;
-  width: min(1200px, 100%) !important;
-  margin: 0 auto !important;
-  justify-items: center !important;
-}
-#paginaTavoli .tavolo {
-  width: 220px !important;
-  max-width: none !important;
-}
-/* Centro i bottoni delle sale e limito la larghezza contenuto */
-#paginaTavoli .sezioni-tavoli {
-  justify-content: center !important;
-}
-
-/* === Pulsante "Aggiungi al tavolo" (visibile solo in modalità assegnazione tavolo) === */
-#btn-aggiungi-al-tavolo {
-  position: fixed;
-  right: 16px;
-  bottom: 82px; /* poco sopra il carrello fisso */
-  display: none;
-  z-index: 2100;
-  padding: 12px 16px;
-  border: none;
-  border-radius: 16px;
-  font-weight: 800;
-  cursor: pointer;
-  background: linear-gradient(135deg, #39D9A9, #00B4FF, #6A00FF);
-  color: #fff;
-  box-shadow: 0 10px 22px rgba(0,0,0,0.18);
-}
-
-</style>
-<style>
-#paginaTavoli .tavoli-grid {
-  display: grid !important;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)) !important;
-  gap: 20px !important;
-  width: min(1200px, 100%) !important;
-  margin: 0 auto !important;
-  justify-items: center !important;
-}
-#paginaTavoli .tavolo { width: 220px !important; }
-
-/* === Pulsante "Aggiungi al tavolo" (visibile solo in modalità assegnazione tavolo) === */
-#btn-aggiungi-al-tavolo {
-  position: fixed;
-  right: 16px;
-  bottom: 82px; /* poco sopra il carrello fisso */
-  display: none;
-  z-index: 2100;
-  padding: 12px 16px;
-  border: none;
-  border-radius: 16px;
-  font-weight: 800;
-  cursor: pointer;
-  background: linear-gradient(135deg, #39D9A9, #00B4FF, #6A00FF);
-  color: #fff;
-  box-shadow: 0 10px 22px rgba(0,0,0,0.18);
-}
-
-</style>
-<style>
-.btn-back-vendita{
-  background:#ff5c5c; color:#fff; border:none; padding:12px 20px;
-  border-radius:12px; font-weight:700; cursor:pointer;
-  transition:transform .1s, box-shadow .2s, background .2s;
-}
-.btn-back-vendita:hover{ transform:translateY(-1px); box-shadow:0 6px 16px rgba(255,92,92,.35); background:#ff4a4a; }
-.tavoli-actions{ text-align:center; margin-top:28px; }
-
-/* === Pulsante "Aggiungi al tavolo" (visibile solo in modalità assegnazione tavolo) === */
-#btn-aggiungi-al-tavolo {
-  position: fixed;
-  right: 16px;
-  bottom: 82px; /* poco sopra il carrello fisso */
-  display: none;
-  z-index: 2100;
-  padding: 12px 16px;
-  border: none;
-  border-radius: 16px;
-  font-weight: 800;
-  cursor: pointer;
-  background: linear-gradient(135deg, #39D9A9, #00B4FF, #6A00FF);
-  color: #fff;
-  box-shadow: 0 10px 22px rgba(0,0,0,0.18);
-}
-
-</style>
-<style>
-/* === Popup Ordini Tavolo === */
-#popup-ordini-tavolo {
-  position: fixed;
-  inset: 0;
-  display: none;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0,0,0,0.45);
-  z-index: 2000;
-}
-#popup-ordini-tavolo .box {
-  width: min(540px, 92vw);
-  max-height: 80vh;
-  overflow: hidden;
-  background: #ffffff;
-  border-radius: 18px;
-  box-shadow: 0 12px 30px rgba(0,0,0,0.18);
-  display: flex;
-  flex-direction: column;
-}
-#popup-ordini-tavolo .header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 14px 16px;
-  border-bottom: 1px solid #eee;
-}
-#popup-ordini-tavolo .header h3 {
-  margin: 0;
-  font-size: 18px;
-}
-#popup-ordini-tavolo .close {
-  border: none;
-  background: #f3f3f3;
-  border-radius: 10px;
-  padding: 6px 10px;
-  cursor: pointer;
-  font-weight: 600;
-}
-#popup-ordini-tavolo .content {
-  padding: 8px 16px 4px;
-  overflow-y: auto;
-}
-#popup-ordini-tavolo .riga {
-  display: grid;
-  grid-template-columns: 1fr 52px 76px;
-  gap: 8px;
-  align-items: center;
-  padding: 10px 0;
-  border-bottom: 1px dashed #e9e9e9;
-}
-#popup-ordini-tavolo .riga .nome { font-weight: 600; }
-#popup-ordini-tavolo .riga .qty { text-align: center; }
-#popup-ordini-tavolo .riga .prezzo { text-align: right; }
-#popup-ordini-tavolo .footer {
-  padding: 12px 16px 16px;
-  border-top: 1px solid #eee;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 10px;
-}
-#popup-ordini-tavolo .footer .totale {
-  font-size: 16px;
-  font-weight: 700;
-}
-#popup-ordini-tavolo .footer .azioni {
-  display: flex;
-  gap: 8px;
-}
-#popup-ordini-tavolo .footer button {
-  border: none;
-  border-radius: 12px;
-  padding: 10px 14px;
-  cursor: pointer;
-  font-weight: 700;
-}
-#popup-ordini-tavolo .footer .chiudi {
-  background: #ededed;
-}
-#popup-ordini-tavolo .footer .vai-a-pagamento {
-  background: linear-gradient(135deg, #39D9A9, #00B4FF, #6A00FF);
-  color: #fff;
-}
-
-/* === Pulsante "Aggiungi al tavolo" (visibile solo in modalità assegnazione tavolo) === */
-#btn-aggiungi-al-tavolo {
-  position: fixed;
-  right: 16px;
-  bottom: 82px; /* poco sopra il carrello fisso */
-  display: none;
-  z-index: 2100;
-  padding: 12px 16px;
-  border: none;
-  border-radius: 16px;
-  font-weight: 800;
-  cursor: pointer;
-  background: linear-gradient(135deg, #39D9A9, #00B4FF, #6A00FF);
-  color: #fff;
-  box-shadow: 0 10px 22px rgba(0,0,0,0.18);
-}
-
-</style>
-</head>
-<body>
-<div class="sidebar">
-<div style="font-size: 20px; font-weight: bold; margin: 20px 0; text-align: center;">Zappy</div>
-<button id="btnHome" style="
-    margin: 40px 0;
-    background: linear-gradient(135deg, #39D9A9, #00B4FF, #6A00FF);
-    border: none;
-    border-radius: 20px;
-    width: 60px;
-    height: 60px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.15);
-    transition: transform 0.2s ease;
-">
-<svg fill="white" height="28" viewbox="0 0 24 24" width="28" xmlns="http://www.w3.org/2000/svg"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"></path></svg>
-</button>
-<button id="btnTavoli" style="
-    margin: 40px 0;
-    background: linear-gradient(135deg, #39D9A9, #00B4FF, #6A00FF);
-    border: none;
-    border-radius: 20px;
-    width: 60px;
-    height: 60px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.15);
-    transition: transform 0.2s ease;
-">
-<svg fill="white" height="28" viewbox="0 0 512 512" width="28" xmlns="http://www.w3.org/2000/svg">
-<path d="M256 32c-70.7 0-128 57.3-128 128 0 32 24 96 128 224 104-128 128-192 128-224 0-70.7-57.3-128-128-128zM80 320c-26.5 0-48 21.5-48 48v80h48v-80h48v80h48v-80c0-26.5-21.5-48-48-48H80zm352 0c-26.5 0-48 21.5-48 48v80h48v-80h48v80h48v-80c0-26.5-21.5-48-48-48h-48z"></path>
-</svg>
-<button id="btnStatistiche" style="margin: 40px 0; background: linear-gradient(135deg, #39D9A9, #00B4FF, #6A00FF); border: none; border-radius: 20px; width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.15); transition: transform 0.2s ease;">
-<svg fill="white" height="28" viewbox="0 0 24 24" width="28" xmlns="http://www.w3.org/2000/svg">
-<path d="M3 17h2v-7H3v7zm4 0h2V7H7v10zm4 0h2v-4h-2v4zm4 0h2V3h-2v14zm4 0h2v-9h-2v9z"></path>
-</svg>
-</button>
-</button></div>
-<div class="content">
-<div class="categorie"></div>
-<div class="prodotti"></div>
-<div class="sezioni-prodotti"></div>
-</div>
-<div class="riepilogo-order">
-<div class="ordine-header">
-<div style="font-weight: bold; font-size: 18px;">Nuovo ordine</div>
-<div style="font-size: 16px;">Vendita diretta</div>
-</div>
-<div class="order-list"><p style="color:#555;">Nessun prodotto</p></div>
-<button class="btn-add-to-table" id="btnAggAlTavoloSidebar">➕ Aggiungi al tavolo</button><div class="ordine-footer">
-<div class="totale">Totale: <strong>€ 0,00</strong></div>
-<div class="bottoni">
-<button class="subtotale">Subtotale</button>
-<button class="pagamento">Pagamento</button>
-</div>
-<button class="prepara">Prepara</button>
-</div>
-</div>
-<style>
-    .riepilogo-order {
-      width: 300px;
-      background: white;
-      border-left: 2px solid #eee;
-      padding: 16px;
-      font-family: 'Segoe UI', sans-serif;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-    }
-    .ordine-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 16px;
-    }
-    .order-list {
-      flex: 1;
-    }
-    .order-item {
-      display: flex;
-      align-items: center;
-      margin-bottom: 12px;
-    }
-    .order-item img {
-      width: 40px;
-      height: 40px;
-      object-fit: cover;
-      border-radius: 8px;
-      margin-right: 10px;
-    }
-    .order-item .nome {
-      font-weight: bold;
-    }
-    .order-item .qty {
-      color: #007BFF;
-    }
-    .prezzo {
-      margin-left: auto;
-    }
-    
-    .bottoni {
-      display: flex;
-      gap: 10px;
-      margin: 10px 0;
-    }
-    .subtotale, .pagamento, .prepara {
-      flex: 1;
-      padding: 10px;
-      border: none;
-      border-radius: 8px;
-      font-weight: bold;
-      cursor: pointer;
-    }
-    .subtotale, .pagamento {
-      background: #E5F2FF;
-    }
-    .prepara {
-      background: #0050D8;
-      color: white;
-    }
-  
-
-/* Sidebar gradient */
-.sidebar {
-    background: linear-gradient(180deg, #39D9A9, #00B4FF, #6A00FF);
-}
-
-/* Pulsante Prepara gradient */
-.prepara {
-    background: linear-gradient(135deg, #39D9A9, #00B4FF, #6A00FF);
-    color: white;
-    font-weight: bold;
-    border: none;
-    border-radius: 12px;
-    padding: 12px;
-    cursor: pointer;
-    transition: transform 0.1s ease, box-shadow 0.2s ease;
-}
-.prepara:hover {
-    transform: scale(1.05);
-    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
-}
-
-/* Riquadri categorie in alto con gradient */
-.categorie button {
-    padding: 10px 16px;
-    border: none;
-    border-radius: 12px;
-    cursor: pointer;
-    background: linear-gradient(135deg, #39D9A9, #00B4FF, #6A00FF);
-    color: white;
-    font-weight: 600;
-    font-size: 15px;
-    transition: background 0.3s ease, transform 0.1s ease;
-}
-.categorie button:hover {
-    transform: scale(1.05);
-    background: linear-gradient(135deg, #2cbf93, #009de0, #5800cc);
-}
-
-
-.card {
-    border: 1px solid rgba(57, 217, 169, 0.4); /* verde acqua trasparente sottile */
-    transition: box-shadow 0.2s ease, transform 0.1s ease;
-}
-.card:hover {
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-    transform: translateY(-2px);
-}
-
-/* === Pulsante "Aggiungi al tavolo" (visibile solo in modalità assegnazione tavolo) === */
-#btn-aggiungi-al-tavolo {
-  position: fixed;
-  right: 16px;
-  bottom: 82px; /* poco sopra il carrello fisso */
-  display: none;
-  z-index: 2100;
-  padding: 12px 16px;
-  border: none;
-  border-radius: 16px;
-  font-weight: 800;
-  cursor: pointer;
-  background: linear-gradient(135deg, #39D9A9, #00B4FF, #6A00FF);
-  color: #fff;
-  box-shadow: 0 10px 22px rgba(0,0,0,0.18);
-}
-
-
-
-/* === ZAPPY: Pulsante contestuale "Aggiungi al tavolo" (solo pagina prodotti) === */
-.btn-add-to-table{
-  display:none;
-  width:100%;
-  background: linear-gradient(135deg, #39D9A9, #00B4FF, #6A00FF);
-  color:#fff;
-  font-weight:800;
-  border:none;
-  border-radius:12px;
-  padding:12px 14px;
-  cursor:pointer;
-  margin-bottom:10px;
-  box-shadow:0 8px 18px rgba(0,0,0,0.12);
-}
-.btn-add-to-table:hover{ filter:brightness(1.03); }
-</style>
-<script type="module">
-
-function aggiornaOrdine() {
-  const lista = document.querySelector('.order-list');
-  const totaleDOM = document.querySelector('.totale strong');
-  lista.innerHTML = '';
-  let totale = 0;
-
-  carrello.forEach((p, i) => {
-    const div = document.createElement('div');
-    div.className = 'order-item';
-    div.innerHTML = `
-      <img src="${p.immagine}" />
-      <div>
-        <div class="nome">${p.nome}</div>
-        <div class="qty">x${p.quantita}</div>
-      </div>
-      <div class="prezzo">€ ${(p.prezzo * p.quantita).toFixed(2)}</div>
-    `;
-    div.onclick = () => {
-      if (p.quantita > 1) {
-        p.quantita--;
+    // ---- UTIL ----
+    const $ = (s,r=document)=>r.querySelector(s);
+    const $$ = (s,r=document)=>Array.from(r.querySelectorAll(s));
+    const LOCALE = new URLSearchParams(location.search).get("locale") || "zappydemo";
+    $("#localeLabel").textContent = LOCALE;
+    const money = n => (Number(n||0)).toFixed(2).replace('.',',');
+
+    // ---- STATE ----
+    let currentSala = null;
+    let selectedTable = null;         // { salaId, tavoloId, tavoloNome }
+    let cameFromTable = false;        // set true if user clicked a tavolo-card to come to Home
+
+
+
+    // ---- NAV ----
+    // Hash-based navigation (robust)
+    function navTo(view){
+      console.log("navTo chiamato con:", view);
+      if (!view) view = 'home';
+      if (location.hash !== '#' + view) {
+        location.hash = '#' + view;
+        console.log('hash cambiato a', location.hash);
       } else {
-        carrello.splice(i, 1);
+        // if same hash, still ensure switch
+        console.log('hash già uguale, forzo switchView');
+        switchView(view);
       }
-      aggiornaOrdine();
-      aggiornaCardUI();
-    };
-    lista.appendChild(div);
-    totale += p.prezzo * p.quantita;
-  });
-
-  totaleDOM.textContent = `€ ${totale.toFixed(2)}`;
-}
-
-function aggiornaCardUI() {
-  document.querySelectorAll('.card').forEach(card => {
-    const nome = card.querySelector('h4').textContent;
-    const index = carrello.findIndex(p => p.nome === nome);
-    if (index > -1) {
-      card.classList.add('selected');
-    } else {
-      card.classList.remove('selected');
     }
-  });
-}
-
-
-function aggiornaCardUI() {
-    document.querySelectorAll('.card').forEach(card => {
-        const nome = card.querySelector('h4').textContent;
-        const index = carrello.findIndex(p => p.nome === nome);
-        let badge = card.querySelector('.quantita-badge');
-        let removeBtn = card.querySelector('.remove-one');
-
-        if (!badge) {
-            badge = document.createElement('div');
-            badge.className = 'quantita-badge';
-            card.appendChild(badge);
-        }
-        if (!removeBtn) {
-            removeBtn = document.createElement('div');
-            removeBtn.className = 'remove-one';
-            removeBtn.textContent = '✕';
-            card.appendChild(removeBtn);
-        }
-
-        if (index > -1) {
-            card.classList.add('selected');
-            badge.textContent = 'x' + carrello[index].quantita;
-            badge.style.display = 'block';
-            removeBtn.style.display = 'block';
-        } else {
-            card.classList.remove('selected');
-            badge.style.display = 'none';
-            removeBtn.style.display = 'none';
-        }
+    window.addEventListener('hashchange', () => {
+      const v = (location.hash || '#home').replace('#','');
+      console.log('EVENTO hashchange →', v);
+      switchView(v);
     });
+    
+    $$(".nav-btn").forEach(b=>b.onclick=()=>navTo(b.dataset.view));
+    function switchView(v){
+      console.log("switchView avviato con:", v);
+      document.body.dataset.view = v;
+      $$(".view").forEach(x=>x.classList.add("hidden"));
+      $("#view-"+v).classList.remove("hidden");
+      if(v==="home") { loadHome(); showOrderPane(true); console.log('→ Vista Home attivata'); }
+      if(v==="tavoli") { loadTavoli(); showOrderPane(false); }
+      if(v==="statistiche") { showOrderPane(false); }
+      // header button visibility handled outside depending on context
+      updateHeaderButton();
+    }
+    // initial render delayed to after helpers are defined
+
+
+    // ---- CONTEXT: selected table & route ----
+        function markCameFromTable(on){
+      cameFromTable = !!on;
+      updateHeaderButton();
+    }
+    function updateHeaderButton(){
+  const btn = $("#btnAddToTable");
+  const cancel = $("#btnCancelTable");
+  const badge = $("#modeBadge");
+  const inHome = !$("#view-home").classList.contains("hidden");
+  const show = inHome && cameFromTable && !!selectedTable;
+  btn.classList.toggle("hidden", !show);
+  cancel.classList.toggle("hidden", !show);
+  badge.textContent = show ? (selectedTable?.tavoloNome || "Tavolo") : "Vendita diretta";
+  if(!btn._wired){
+    btn._wired = true;
+    btn.onclick = ()=>{
+      try{ carrello = []; renderCart(); }catch(e){}
+      selectedTable = null; markCameFromTable(false); updateHeaderButton();
+    };
+  }
+  if(!cancel._wired){
+    cancel._wired = true;
+    cancel.onclick = ()=>{
+      try{ carrello = []; renderCart(); }catch(e){}
+      selectedTable = null; markCameFromTable(false); updateHeaderButton();
+    };
+  }
 }
 
-document.addEventListener("click", function(e) {
-    const card = e.target.closest(".card");
-    if (card) {
-        const nome = card.querySelector("h4").textContent;
-        const prezzo = parseFloat(card.querySelector("p").textContent.replace("€", "").replace(",", "."));
-        const immagine = card.querySelector("img").src;
 
-        // Se clic sulla X rossa (rimuove uno alla volta)
-        if (e.target.classList.contains("remove-one")) {
-            e.stopPropagation();
-            const index = carrello.findIndex(p => p.nome === nome);
-            if (index > -1) {
-                if (carrello[index].quantita > 1) {
-                    carrello[index].quantita--;
-                } else {
-                    carrello.splice(index, 1);
-                }
-                aggiornaOrdine();
-                aggiornaCardUI();
-            }
-            return;
-        }
-
-        // Se clic sulla card ➔ aumenta quantità
-        const index = carrello.findIndex(p => p.nome === nome);
-        if (index > -1) {
-            carrello[index].quantita++;
-        } else {
-            carrello.push({ nome, prezzo, immagine, quantita: 1 });
-        }
-        aggiornaOrdine();
-        aggiornaCardUI();
-        return;
+    // Show/Hide order pane (visible only on Home)
+    function showOrderPane(show){
+      const pane = document.getElementById('orderPane');
+      if (!pane) return;
+      pane.classList.toggle('hidden', !show);
+    }
+    
+    function goToHomeFromTable(){
+      // Force navigation to Home after a table selection (robust)
+      const go = () => {
+        document.body.dataset.view = 'home';
+        $$(".view").forEach(x=>x.classList.add("hidden"));
+        $("#view-home").classList.remove("hidden");
+        showOrderPane(true);
+        loadHome();         // ensure products are rendered updateHeaderButton();
+};
+      // Defer to next frame to avoid reflows or competing handlers
+      requestAnimationFrame(()=>{ setTimeout(go, 0); });
     }
 
-    // Gestione pulsanti + e - nel carrello
-    if (e.target.classList.contains('btn-add')) {
-        const idx = parseInt(e.target.dataset.index);
-        carrello[idx].quantita++;
-        aggiornaOrdine();
-        aggiornaCardUI();
-    }
-    if (e.target.classList.contains('btn-subtract')) {
-        const idx = parseInt(e.target.dataset.index);
-        if (carrello[idx].quantita > 1) {
-            carrello[idx].quantita--;
-        } else {
-            carrello.splice(idx, 1);
-        }
-        aggiornaOrdine();
-        aggiornaCardUI();
-    }
-});
+    // Initial render via hash
+    navTo((location.hash||"#home").replace("#",""));
 
-function aggiornaOrdine() {
-    const lista = document.querySelector('.order-list');
-    const totaleDOM = document.querySelector('.totale strong');
-    lista.innerHTML = '';
-    let totale = 0;
-
-    carrello.forEach((p, i) => {
-        const div = document.createElement('div');
-        div.className = 'order-item';
-        div.innerHTML = `
-            <img src="${p.immagine}" />
-            <div>
-                <div class="nome">${p.nome}</div>
-                <div class="qty">x${p.quantita}</div>
-            </div>
-            <div class="prezzo">€ ${(p.prezzo * p.quantita).toFixed(2)}</div>
-            <div class="azioni">
-                <button class="btn-add" data-index="${i}">+</button>
-                <button class="btn-subtract" data-index="${i}">-</button>
-            </div>
+    // ---- CARRELLO (UI only) ----
+    let carrello = []; // {id, nome, prezzo, quantita}
+    function renderCart(){
+      const list = $("#cartList");
+      const empty = $("#emptyCart");
+      list.innerHTML = "";
+      if(!carrello.length){ empty.style.display="block"; } else { empty.style.display="none"; }
+      carrello.forEach((p, idx)=>{
+        const row = document.createElement("div");
+        row.className = "cart-item";
+        row.innerHTML = `
+          <div class="tit">${p.nome}</div>
+          <div class="qty">
+            <button data-act="dec">–</button>
+            <span>${p.quantita}</span>
+            <button data-act="inc">+</button>
+          </div>
+          <div class="price">€ ${money(p.prezzo * p.quantita)}</div>
         `;
-        lista.appendChild(div);
-        totale += p.prezzo * p.quantita;
-    });
-
-    totaleDOM.textContent = `€ ${totale.toFixed(2)}`;
-}
-
-</script><script type="module">
-</script>
-<div class="popup-pagamento" id="popup-pagamento">
-<div class="popup-content">
-<div class="popup-header">
-<button class="chiudi" onclick="togglePopupPagamento()">✕</button>
-</div>
-<div class="popup-grid">
-<div class="row top-buttons">
-<button class="attivo">👤 Persona</button>
-<button>🏢 Azienda</button>
-</div>
-<div class="row totali">
-<div class="totale">Totale (€)<br/><strong id="totale-popup">0,00</strong></div>
-<div class="pagato">Pagato (€)<br/><strong>0,00</strong></div>
-<div class="da-pagare">Da pagare (€)<br/><strong id="da-pagare-popup">0,00</strong></div>
-</div>
-<div class="row metodi">
-<button class="attivo totale">Totale</button>
-<button class="parziale">Parziale</button>
-<button class="allaromana">Alla Romana</button>
-<button class="separa">Separa</button>
-</div>
-<div class="row finali">
-<button class="grande">Contanti</button>
-<button class="grande">Carte</button>
-</div>
-<div class="row">
-<button class="altro">Altro</button>
-</div>
-<div class="modalita-section" id="modalita-parziale" style="display:none;">
-<p style="text-align:center;">Importo parziale (€)</p>
-<div style="display:flex; justify-content:center; align-items:center; gap:10px;">
-<button onclick="modificaParziale(-1)">−</button>
-<input id="input-parziale" min="0" style="width:60px; text-align:center;" type="number" value="0"/>
-<button onclick="modificaParziale(1)">+</button>
-</div>
-</div>
-<div class="modalita-section" id="modalita-romana" style="display:none;">
-<p style="text-align:center;">Numero di persone</p>
-<div style="display:flex; justify-content:center; align-items:center; gap:10px;">
-<button onclick="modificaPersone(-1)">−</button>
-<input id="input-persone" min="1" style="width:60px; text-align:center;" type="number" value="2"/>
-<button onclick="modificaPersone(1)">+</button>
-</div>
-<p style="text-align:center;">Importo (€)</p>
-<div style="text-align:center;">
-<strong id="romana-importo">0,00</strong>
-</div>
-</div>
-<div class="modalita-section" id="modalita-separa" style="display:none;">
-<p>Prodotti ordinati</p>
-<div id="separa-prodotti" style="display: flex; flex-wrap: wrap; gap: 8px;"></div>
-<p>Prodotti selezionati</p>
-<div id="selezionati-prodotti" style="min-height: 30px; margin-bottom: 10px;"></div>
-<p style="text-align:right;">Importo (€): <strong id="separa-totale">0,00</strong></p>
-</div>
-</div>
-</div>
-</div>
-<script type="module">
-function togglePopupPagamento() {
-  const popup = document.getElementById('popup-pagamento');
-  popup.style.display = popup.style.display === 'flex' ? 'none' : 'flex';
-
-  const totale = carrello.reduce((sum, p) => sum + p.prezzo * p.quantita, 0);
-  document.getElementById('totale-popup').innerText = totale.toFixed(2).replace('.', ',');
-  document.getElementById('da-pagare-popup').innerText = totale.toFixed(2).replace('.', ',');
-}
-
-document.addEventListener("DOMContentLoaded", () => {
-  const btnPagamento = document.querySelector(".pagamento");
-  if (btnPagamento) {
-    btnPagamento.addEventListener("click", togglePopupPagamento);
-  }
-});
-</script>
-<div class="popup-subtotale" id="popup-subtotale">
-<div class="popup-content-subtotale">
-<h3>Subtotale ( € )</h3>
-<div class="totali-subtotale">
-<div><span>Subtotale</span><strong id="subtotale-valore">0,00</strong></div>
-<div><span>Differenza</span><strong id="differenza-valore">0,00</strong></div>
-<div><span>Totale</span><strong id="totale-valore">0,00</strong></div>
-</div>
-<div class="sconti-rapidi">
-<button onclick="applicaSconto(-20)">-20%</button>
-<button onclick="applicaSconto(-10)">-10%</button>
-<button onclick="applicaSconto(-5)">-5%</button>
-<button onclick="applicaSconto(5)">+5%</button>
-<button onclick="applicaSconto(10)">+10%</button>
-<button onclick="applicaSconto(20)">+20%</button>
-</div>
-<div class="tastierino-subtotale">
-<button onclick="inserisciNumero(1)">1</button>
-<button onclick="inserisciNumero(2)">2</button>
-<button onclick="inserisciNumero(3)">3</button>
-<button onclick="inserisciNumero(4)">4</button>
-<button onclick="inserisciNumero(5)">5</button>
-<button onclick="inserisciNumero(6)">6</button>
-<button onclick="inserisciNumero(7)">7</button>
-<button onclick="inserisciNumero(8)">8</button>
-<button onclick="inserisciNumero(9)">9</button>
-<button onclick="inserisciNumero(0)">0</button>
-<button onclick="inserisciNumero(00)">00</button>
-<button class="reset" onclick="resetInput()">C</button>
-</div>
-<button class="conferma-subtotale" onclick="confermaSubtotale()">Conferma</button>
-</div>
-</div>
-<script type="module">
-function togglePopupSubtotale(show = true) {
-    const popup = document.getElementById('popup-subtotale');
-    popup.style.display = show ? 'flex' : 'none';
-    const subtotaleText = document.querySelector('.totale strong').innerText.replace(/[^\d,\.]/g, '').replace(',', '.');
-    const subtotale = parseFloat(subtotaleText) || 0;
-    document.getElementById('subtotale-valore').innerText = subtotale.toFixed(2).replace('.', ',');
-    document.getElementById('totale-valore').innerText = subtotale.toFixed(2).replace('.', ',');
-    document.getElementById('differenza-valore').innerText = '0,00';
-}
-
-function applicaSconto(percent) {
-    const subtotale = parseFloat(document.getElementById('subtotale-valore').innerText.replace(',', '.')) || 0;
-    const differenza = subtotale * (percent / 100);
-    const totale = subtotale + differenza;
-    document.getElementById('differenza-valore').innerText = differenza.toFixed(2).replace('.', ',');
-    document.getElementById('totale-valore').innerText = totale.toFixed(2).replace('.', ',');
-}
-
-function inserisciNumero(numero) {
-    const differenzaElem = document.getElementById('differenza-valore');
-    let current = differenzaElem.innerText.replace(/[^\d]/g, '');
-    current = current + numero.toString();
-    const valore = parseFloat(current) / 100;
-    differenzaElem.innerText = valore.toFixed(2).replace('.', ',');
-    const subtotale = parseFloat(document.getElementById('subtotale-valore').innerText.replace(',', '.')) || 0;
-    const totale = subtotale + valore;
-    document.getElementById('totale-valore').innerText = totale.toFixed(2).replace('.', ',');
-}
-
-function resetInput() {
-    document.getElementById('differenza-valore').innerText = '0,00';
-    document.getElementById('totale-valore').innerText = document.getElementById('subtotale-valore').innerText;
-}
-
-function confermaSubtotale() {
-    const nuovoTotale = document.getElementById('totale-valore').innerText;
-    const totaleElem = document.querySelector('.totale strong');
-
-    // Se non è già barrato, lo barra
-    if (!totaleElem.classList.contains('barrato')) {
-        totaleElem.classList.add('barrato');
-        const nuovoTotaleElem = document.createElement('span');
-        nuovoTotaleElem.className = 'nuovo-totale';
-        nuovoTotaleElem.style.marginLeft = '8px';
-        nuovoTotaleElem.style.color = '#39D9A9';
-        nuovoTotaleElem.style.fontWeight = '600';
-        nuovoTotaleElem.innerText = '€ ' + nuovoTotale;
-        totaleElem.parentElement.appendChild(nuovoTotaleElem);
-    } else {
-        // Se già barrato, aggiorna il nuovo totale
-        const nuovoTotaleElem = document.querySelector('.nuovo-totale');
-        if (nuovoTotaleElem) {
-            nuovoTotaleElem.innerText = '€ ' + nuovoTotale;
-        }
-    }
-
-    togglePopupSubtotale(false);
-}
-
-document.addEventListener("DOMContentLoaded", () => {
-    const btnSubtotale = document.querySelector(".subtotale");
-    if (btnSubtotale) {
-        btnSubtotale.addEventListener("click", () => {
-            togglePopupSubtotale(true);
-        });
-    }
-});
-</script>
-<script type="module">
-// Rimuove barratura e nuovo totale quando cambia il carrello
-function resetTotaleManuale() {
-    const totaleElem = document.querySelector('.totale strong');
-    const nuovoTotaleElem = document.querySelector('.nuovo-totale');
-    if (totaleElem && totaleElem.classList.contains('barrato')) {
-        totaleElem.classList.remove('barrato');
-    }
-    if (nuovoTotaleElem) {
-        nuovoTotaleElem.remove();
-    }
-}
-
-// Hook sulle funzioni di aggiornamento carrello
-const aggiornaOrdineOriginal = aggiornaOrdine;
-aggiornaOrdine = function() {
-    resetTotaleManuale(); // resetta se il carrello cambia
-    aggiornaOrdineOriginal(); // esegue la funzione originale
-};
-</script>
-<div id="paginaTavoli" style="display:none; flex:1; flex-direction:column; padding:20px; overflow-y:auto;">
-<h2 style="color:#007BFF; text-align:center;">Gestione Tavoli</h2>
-<div id="conteggioTavoli" style="text-align:center; font-weight:600; margin-bottom:10px;">Tavoli visibili: 0/0</div>
-<div class="sezioni-tavoli" style="display: flex; gap: 10px; margin-bottom: 20px; justify-content: center;">
-</div>
-<div class="tavoli-grid">
-<div class="tavolo" style="background:linear-gradient(135deg, #CFFCF3, #D9F0FF, #E9D9FF); border: 2px solid #7FE8CE; border-radius:16px; padding:15px; width:100%; max-width: none; text-align:center; box-shadow:0 4px 12px rgba(0,0,0,0.1); transition:transform 0.2s;">
-<h3>Tavolo 1</h3><p>€ 0,00</p><p style="color:#00b894; font-weight:bold;">Libero</p>
-</div>
-<div class="tavolo" style="background:linear-gradient(135deg, #CFFCF3, #D9F0FF, #E9D9FF); border: 2px solid #7FE8CE; border-radius:16px; padding:15px; width:100%; max-width: none; text-align:center; box-shadow:0 4px 12px rgba(0,0,0,0.1); transition:transform 0.2s;">
-<h3>Tavolo 2</h3><p>€ 0,00</p><p style="color:#00b894; font-weight:bold;">Libero</p>
-</div>
-<div class="tavolo" style="background:linear-gradient(135deg, #CFFCF3, #D9F0FF, #E9D9FF); border: 2px solid #7FE8CE; border-radius:16px; padding:15px; width:100%; max-width: none; text-align:center; box-shadow:0 4px 12px rgba(0,0,0,0.1); transition:transform 0.2s;">
-<h3>Tavolo 3</h3><p>€ 0,00</p><p style="color:#00b894; font-weight:bold;">Libero</p>
-</div>
-<div class="tavolo" style="background:linear-gradient(135deg, #CFFCF3, #D9F0FF, #E9D9FF); border: 2px solid #7FE8CE; border-radius:16px; padding:15px; width:100%; max-width: none; text-align:center; box-shadow:0 4px 12px rgba(0,0,0,0.1); transition:transform 0.2s;">
-<h3>Tavolo 4</h3><p>€ 0,00</p><p style="color:#00b894; font-weight:bold;">Libero</p>
-</div>
-<div class="tavolo" style="background:linear-gradient(135deg, #CFFCF3, #D9F0FF, #E9D9FF); border: 2px solid #7FE8CE; border-radius:16px; padding:15px; width:100%; max-width: none; text-align:center; box-shadow:0 4px 12px rgba(0,0,0,0.1); transition:transform 0.2s;">
-<h3>Tavolo 5</h3><p>€ 0,00</p><p style="color:#00b894; font-weight:bold;">Libero</p>
-</div>
-<div class="tavolo" style="background:linear-gradient(135deg, #CFFCF3, #D9F0FF, #E9D9FF); border: 2px solid #7FE8CE; border-radius:16px; padding:15px; width:100%; max-width: none; text-align:center; box-shadow:0 4px 12px rgba(0,0,0,0.1); transition:transform 0.2s;">
-<h3>Tavolo 6</h3><p>€ 0,00</p><p style="color:#00b894; font-weight:bold;">Libero</p>
-</div>
-<div class="tavolo" style="background:linear-gradient(135deg, #CFFCF3, #D9F0FF, #E9D9FF); border: 2px solid #7FE8CE; border-radius:16px; padding:15px; width:100%; max-width: none; text-align:center; box-shadow:0 4px 12px rgba(0,0,0,0.1); transition:transform 0.2s;">
-<h3>Tavolo 7</h3><p>€ 0,00</p><p style="color:#00b894; font-weight:bold;">Libero</p>
-</div>
-<div class="tavolo" style="background:linear-gradient(135deg, #CFFCF3, #D9F0FF, #E9D9FF); border: 2px solid #7FE8CE; border-radius:16px; padding:15px; width:100%; max-width: none; text-align:center; box-shadow:0 4px 12px rgba(0,0,0,0.1); transition:transform 0.2s;">
-<h3>Tavolo 8</h3><p>€ 0,00</p><p style="color:#00b894; font-weight:bold;">Libero</p>
-</div>
-<div class="tavolo" style="background:linear-gradient(135deg, #CFFCF3, #D9F0FF, #E9D9FF); border: 2px solid #7FE8CE; border-radius:16px; padding:15px; width:100%; max-width: none; text-align:center; box-shadow:0 4px 12px rgba(0,0,0,0.1); transition:transform 0.2s;">
-<h3>Tavolo 9</h3><p>€ 0,00</p><p style="color:#00b894; font-weight:bold;">Libero</p>
-</div>
-<div class="tavolo" style="background:linear-gradient(135deg, #CFFCF3, #D9F0FF, #E9D9FF); border: 2px solid #7FE8CE; border-radius:16px; padding:15px; width:100%; max-width: none; text-align:center; box-shadow:0 4px 12px rgba(0,0,0,0.1); transition:transform 0.2s;">
-<h3>Tavolo 10</h3><p>€ 0,00</p><p style="color:#00b894; font-weight:bold;">Libero</p>
-</div>
-<div class="tavolo" style="background:linear-gradient(135deg, #CFFCF3, #D9F0FF, #E9D9FF); border: 2px solid #7FE8CE; border-radius:16px; padding:15px; width:100%; max-width: none; text-align:center; box-shadow:0 4px 12px rgba(0,0,0,0.1); transition:transform 0.2s;">
-<h3>Tavolo 11</h3><p>€ 0,00</p><p style="color:#00b894; font-weight:bold;">Libero</p>
-</div>
-<div class="tavolo" style="background:linear-gradient(135deg, #CFFCF3, #D9F0FF, #E9D9FF); border: 2px solid #7FE8CE; border-radius:16px; padding:15px; width:100%; max-width: none; text-align:center; box-shadow:0 4px 12px rgba(0,0,0,0.1); transition:transform 0.2s;">
-<h3>Tavolo 12</h3><p>€ 0,00</p><p style="color:#00b894; font-weight:bold;">Libero</p>
-</div>
-<div class="tavolo" style="background:linear-gradient(135deg, #CFFCF3, #D9F0FF, #E9D9FF); border: 2px solid #7FE8CE; border-radius:16px; padding:15px; width:100%; max-width: none; text-align:center; box-shadow:0 4px 12px rgba(0,0,0,0.1); transition:transform 0.2s;">
-<h3>Tavolo 13</h3><p>€ 0,00</p><p style="color:#00b894; font-weight:bold;">Libero</p>
-</div>
-<div class="tavolo" style="background:linear-gradient(135deg, #CFFCF3, #D9F0FF, #E9D9FF); border: 2px solid #7FE8CE; border-radius:16px; padding:15px; width:100%; max-width: none; text-align:center; box-shadow:0 4px 12px rgba(0,0,0,0.1); transition:transform 0.2s;">
-<h3>Tavolo 14</h3><p>€ 0,00</p><p style="color:#00b894; font-weight:bold;">Libero</p>
-</div>
-<div class="tavolo" style="background:linear-gradient(135deg, #CFFCF3, #D9F0FF, #E9D9FF); border: 2px solid #7FE8CE; border-radius:16px; padding:15px; width:100%; max-width: none; text-align:center; box-shadow:0 4px 12px rgba(0,0,0,0.1); transition:transform 0.2s;">
-<h3>Tavolo 15</h3><p>€ 0,00</p><p style="color:#00b894; font-weight:bold;">Libero</p>
-</div>
-<div class="tavolo" style="background:linear-gradient(135deg, #CFFCF3, #D9F0FF, #E9D9FF); border: 2px solid #7FE8CE; border-radius:16px; padding:15px; width:100%; max-width: none; text-align:center; box-shadow:0 4px 12px rgba(0,0,0,0.1); transition:transform 0.2s;">
-<h3>Tavolo 16</h3><p>€ 0,00</p><p style="color:#00b894; font-weight:bold;">Libero</p>
-</div>
-<div class="tavolo" style="background:linear-gradient(135deg, #CFFCF3, #D9F0FF, #E9D9FF); border: 2px solid #7FE8CE; border-radius:16px; padding:15px; width:100%; max-width: none; text-align:center; box-shadow:0 4px 12px rgba(0,0,0,0.1); transition:transform 0.2s;">
-<h3>Tavolo 17</h3><p>€ 0,00</p><p style="color:#00b894; font-weight:bold;">Libero</p>
-</div>
-<div class="tavolo" style="background:linear-gradient(135deg, #CFFCF3, #D9F0FF, #E9D9FF); border: 2px solid #7FE8CE; border-radius:16px; padding:15px; width:100%; max-width: none; text-align:center; box-shadow:0 4px 12px rgba(0,0,0,0.1); transition:transform 0.2s;">
-<h3>Tavolo 18</h3><p>€ 0,00</p><p style="color:#00b894; font-weight:bold;">Libero</p>
-</div>
-<div class="tavolo" style="background:linear-gradient(135deg, #CFFCF3, #D9F0FF, #E9D9FF); border: 2px solid #7FE8CE; border-radius:16px; padding:15px; width:100%; max-width: none; text-align:center; box-shadow:0 4px 12px rgba(0,0,0,0.1); transition:transform 0.2s;">
-<h3>Tavolo 19</h3><p>€ 0,00</p><p style="color:#00b894; font-weight:bold;">Libero</p>
-</div>
-<div class="tavolo" style="background:linear-gradient(135deg, #CFFCF3, #D9F0FF, #E9D9FF); border: 2px solid #7FE8CE; border-radius:16px; padding:15px; width:100%; max-width: none; text-align:center; box-shadow:0 4px 12px rgba(0,0,0,0.1); transition:transform 0.2s;">
-<h3>Tavolo 20</h3><p>€ 0,00</p><p style="color:#00b894; font-weight:bold;">Libero</p>
-</div>
-</div>
-</div>
-<script type="module">
-document.getElementById('btnTavoli').addEventListener('click', function() {
-    mostraPagina('paginaTavoli');
-});
-
-function mostraPagina(id) {
-    document.querySelector('.content').style.display = 'none';
-    document.querySelector('.riepilogo-order').style.display = 'none';
-    document.getElementById('paginaTavoli').style.display = 'none';
-
-    if (id === 'content') {
-        document.querySelector('.content').style.display = 'block';
-        document.querySelector('.riepilogo-order').style.display = 'block';
-    } else {
-        document.getElementById(id).style.display = 'block';
-    }
-}
-</script>
-<script type="module">
-document.addEventListener('DOMContentLoaded', function() {
-    const btnHome = document.getElementById('btnHome');
-    if (btnHome) {
-        btnHome.addEventListener('click', function() {
-            document.querySelector('.content').style.display = 'block';
-            const riepilogo = document.querySelector('.riepilogo-order');
-            if (riepilogo) riepilogo.style.display = 'block';
-            const tavoli = document.getElementById('paginaTavoli');
-            if (tavoli) tavoli.style.display = 'none';
-        });
-    }
-});
-</script>
-<script type="module">
-document.querySelectorAll('.btn-sezione-tavoli').forEach(button => {
-    button.addEventListener('click', () => {
-        const selected = button.textContent.trim();
-        document.querySelectorAll('.tavolo').forEach((tavolo, index) => {
-            const n = index + 1;
-            tavolo.style.display = (
-                selected === 'TUTTI' ||
-                (selected === 'SALA 1' && n >= 1 && n <= 5) ||
-                (selected === 'SALA 2' && n >= 6 && n <= 14) ||
-                (selected === 'ESTERNO' && n >= 15 && n <= 20)
-            ) ? 'block' : 'none';
-        });
-    });
-});
-</script>
-<script type="module">
-function aggiornaConteggio() {
-    const visibili = document.querySelectorAll('.tavolo[style*="block"]').length;
-    const totale = document.querySelectorAll('.tavolo').length;
-    document.getElementById('conteggioTavoli').textContent = `Tavoli visibili: ${visibili}/${totale}`;
-}
-
-document.querySelectorAll('.btn-sezione-tavoli').forEach(button => {
-    button.addEventListener('click', () => {
-        document.querySelectorAll('.btn-sezione-tavoli').forEach(btn => btn.classList.remove('active-tavoli'));
-        button.classList.add('active-tavoli');
-        const selected = button.textContent.trim();
-        document.querySelectorAll('.tavolo').forEach((tavolo, index) => {
-            const n = index + 1;
-            tavolo.style.display = (
-                selected === 'TUTTI' ||
-                (selected === 'SALA 1' && n >= 1 && n <= 5) ||
-                (selected === 'SALA 2' && n >= 6 && n <= 14) ||
-                (selected === 'ESTERNO' && n >= 15 && n <= 20)
-            ) ? 'block' : 'none';
-        });
-        aggiornaConteggio();
-    });
-});
-
-// Aggiorna conteggio iniziale
-aggiornaConteggio();
-</script>
-<div id="popupTavolo">
-<div id="popupTavoloContent">
-<h3 id="popupTavoloTitolo">Tavolo</h3>
-<p>Nessun ordine ancora associato.</p>
-<button onclick="vaiAllaVendita()">AGGIUNGI PRODOTTI</button><br/><br/>
-<button onclick="chiudiPopupTavolo()" style="background:#ccc; color:#000;">Chiudi</button>
-</div>
-</div>
-<script type="module">
-
-function chiudiPopupTavolo() {
-    document.getElementById('popupTavolo').style.display = 'none';
-}
-
-// Porta alla pagina principale con tutti i prodotti
-function vaiAllaVendita() {
-    chiudiPopupTavolo();
-    mostraPagina('content');
-}
-</script>
-<button id="btnAggiungiAlTavolo" onclick="aggiungiAlTavolo()">AGGIUNGI AL TAVOLO</button>
-<script type="module">
-let tavoloSelezionato = null;
-let ordiniTavoli = {};
-let carrello = []; // qui collegherai i prodotti reali
-
-document.querySelectorAll('.tavolo').forEach(tavolo => {
-    tavolo.addEventListener('click', () => {
-        tavoloSelezionato = tavolo.querySelector('h3').textContent.trim();
-        mostraOrdiniTavolo();
-        document.getElementById('popupTavolo').style.display = 'flex';
-    });
-});
-
-function mostraOrdiniTavolo() {
-    const lista = document.getElementById('popupTavoloLista');
-    const titolo = document.getElementById('popupTavoloTitolo');
-    titolo.textContent = tavoloSelezionato;
-    const ordini = ordiniTavoli[tavoloSelezionato] || [];
-    lista.innerHTML = ordini.length ? ordini.map(p => `<li>${p}</li>`).join('') : "<li>Nessun ordine ancora associato.</li>";
-}
-
-function chiudiPopupTavolo() {
-    document.getElementById('popupTavolo').style.display = 'none';
-}
-
-function vaiAllaVendita() {
-    chiudiPopupTavolo();
-    mostraPagina('content');
-    controllaPulsanteAggiungi();
-}
-
-// Simulazione aggiunta prodotto
-function aggiungiProdottoAlCarrello(nomeProdotto) {
-    carrello.push(nomeProdotto);
-    aggiornaTotaleCarrello();
-    controllaPulsanteAggiungi();
-}
-
-// Simula visualizzazione del totale carrello
-function aggiornaTotaleCarrello() {
-    const totale = document.getElementById('totaleCarrello');
-    if (totale) {
-        totale.textContent = "Totale: € " + (carrello.length * 5).toFixed(2);
-    }
-}
-
-// Mostra pulsante se tavolo selezionato + carrello pieno
-function controllaPulsanteAggiungi() {
-    const btn = document.getElementById('btnAggiungiAlTavolo');
-    if (tavoloSelezionato && carrello.length > 0) {
-        btn.style.display = 'block';
-    } else {
-        btn.style.display = 'none';
-    }
-}
-
-// Aggiunge i prodotti al tavolo e svuota il carrello
-function aggiungiAlTavolo() {
-    if (!tavoloSelezionato) {
-        alert("Seleziona un tavolo prima.");
-        return;
-    }
-    if (carrello.length === 0) {
-        alert("Il carrello è vuoto.");
-        return;
-    }
-    if (!ordiniTavoli[tavoloSelezionato]) {
-        ordiniTavoli[tavoloSelezionato] = [];
-    }
-    ordiniTavoli[tavoloSelezionato] = ordiniTavoli[tavoloSelezionato].concat(carrello);
-    carrello = [];
-    aggiornaTotaleCarrello();
-    alert(`Prodotti aggiunti a ${tavoloSelezionato}`);
-    document.getElementById('btnAggiungiAlTavolo').style.display = 'none';
-}
-</script>
-<div id="paginaStatistiche" style="display:none; padding:0; margin:0; width:100vw; min-height:100vh; overflow-y:auto;">
-<h2 style="text-align: center; font-size: 28px; font-weight: 700; color: #007BFF;">Statistiche Ordini</h2>
-<div style="background: white; border-radius: 16px; padding: 20px; margin: 20px auto; max-width: 1000px; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
-<div style="display: flex; justify-content: space-between; align-items: center;">
-<h3>Ultime 24 ore</h3>
-<select id="filtroPeriodo" style="padding: 8px; border-radius: 8px; border: 1px solid #ddd;">
-<option value="1">1 giorno</option>
-<option selected="" value="7">1 settimana</option>
-<option value="30">1 mese</option>
-<option value="90">3 mesi</option>
-</select>
-</div>
-<canvas id="grafico24h" style="margin-top: 20px;"></canvas>
-</div>
-<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; max-width: 1000px; margin: 0 auto 50px auto;">
-<div style="background: white; border-radius: 16px; padding: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
-<h4>Prodotti più venduti</h4>
-<canvas id="prodottiTop"></canvas>
-</div>
-<div style="background: white; border-radius: 16px; padding: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
-<h4>Prodotti con più ordini</h4>
-<canvas id="ordiniTop"></canvas>
-</div>
-<div style="background: white; border-radius: 16px; padding: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
-<h4>Categorie più vendute</h4>
-<canvas id="categorieTop"></canvas>
-</div>
-<div style="background: white; border-radius: 16px; padding: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
-<h4>Più aggiunti al carrello</h4>
-<canvas id="aggiuntiCarrello"></canvas>
-</div>
-</div>
-</div>
-<script type="module" src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script type="module">
-document.getElementById('btnStatistiche').addEventListener('click', () => {
-  document.querySelector('.content').style.display = 'none';
-  document.getElementById('paginaTavoli').style.display = 'none';
-  document.getElementById('paginaStatistiche').style.display = 'block';
-  caricaTuttiGrafici();
-});
-
-function caricaTuttiGrafici() {
-  caricaGraficoLinea('grafico24h', 'Ordini nel periodo selezionato', [5, 10, 7, 8, 6, 9]);
-  caricaGraficoBar('prodottiTop', 'Top prodotti venduti', ['Prod1', 'Prod2'], [30, 20]);
-  caricaGraficoBar('ordiniTop', 'Top prodotti ordinati', ['Prod1', 'Prod2'], [40, 15]);
-  caricaGraficoBar('categorieTop', 'Top categorie', ['Cat1', 'Cat2'], [50, 30]);
-  caricaGraficoBar('aggiuntiCarrello', 'Aggiunti al carrello', ['Prod1', 'Prod2'], [100, 80]);
-}
-
-function caricaGraficoLinea(id, label, data) {
-  new Chart(document.getElementById(id).getContext('2d'), {
-    type: 'line',
-    data: {
-      labels: ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab'],
-      datasets: [{
-        label: label,
-        data: data,
-        borderColor: '#39D9A9',
-        backgroundColor: 'rgba(57,217,169,0.2)',
-        fill: true,
-        tension: 0.3
-      }]
-    },
-    options: {
-      responsive: true
-    }
-  });
-}
-
-function caricaGraficoBar(id, label, labels, data) {
-  new Chart(document.getElementById(id).getContext('2d'), {
-    type: 'bar',
-    data: {
-      labels: labels,
-      datasets: [{
-        label: label,
-        data: data,
-        backgroundColor: '#007BFF'
-      }]
-    },
-    options: {
-      responsive: true,
-      indexAxis: 'y'
-    }
-  });
-}
-</script>
-<div id="paginaStatistiche" style="display:none; padding:0; margin:0; width:100vw; min-height:100vh; overflow-y:auto;">
-<h2 style="text-align: center; font-size: 28px; font-weight: 700; color: #007BFF;">Statistiche Gestione Locale</h2>
-<div style="display: flex; justify-content: center; gap: 20px; margin: 20px 0; flex-wrap: wrap;">
-<div class="stat-card" style="flex: 1 1 250px; margin: 10px;"><h4>Incasso Totale</h4><p id="incassoTotale">€ 0</p></div>
-<div class="stat-card" style="flex: 1 1 250px; margin: 10px;"><h4>Numero Ordini</h4><p id="numeroOrdini">0</p></div>
-<div class="stat-card" style="flex: 1 1 250px; margin: 10px;"><h4>Ticket Medio</h4><p id="ticketMedio">€ 0</p></div>
-</div>
-<div style="margin: 20px 0; background: white; padding: 20px; border-radius: 16px; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
-<h3>Andamento Ordini (Ultima Settimana)</h3>
-<canvas id="graficoAndamento"></canvas>
-</div>
-<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-bottom: 50px;">
-<div class="stat-box"><h4>Top 5 Prodotti più venduti</h4><canvas id="graficoTopProdotti"></canvas></div>
-<div class="stat-box"><h4>Top 5 Prodotti con più ordini</h4><canvas id="graficoTopOrdini"></canvas></div>
-<div class="stat-box"><h4>Top 5 Categorie più vendute</h4><canvas id="graficoTopCategorie"></canvas></div>
-<div class="stat-box"><h4>Orari di punta</h4><canvas id="graficoOrari"></canvas></div>
-<div class="stat-box"><h4>Più aggiunti al carrello</h4><canvas id="graficoAggiuntiCarrello"></canvas></div>
-<div class="stat-box"><h4>Più rimossi dal carrello</h4><canvas id="graficoRimossiCarrello"></canvas></div>
-</div>
-</div>
-<script type="module">
- document.getElementById('btnStatistiche').addEventListener('click', () => {
-  document.querySelector('.content').style.display = 'none';
-  document.getElementById('paginaTavoli').style.display = 'none';
-  document.getElementById('paginaStatistiche').style.display = 'block';
-
-  caricaStatistiche();  // ✅ La funzione che carica gli ordini da Firebase
-});
- 
-
-  document.getElementById('btnHome').addEventListener('click', () => {
-    document.querySelector('.content').style.display = 'flex';
-    document.getElementById('paginaTavoli').style.display = 'none';
-    document.getElementById('paginaStatistiche').style.display = 'none';
-  });
-
-  document.getElementById('btnTavoli').addEventListener('click', () => {
-    document.querySelector('.content').style.display = 'none';
-    document.getElementById('paginaTavoli').style.display = 'flex';
-    document.getElementById('paginaStatistiche').style.display = 'none';
-  });
-</script>
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
-  import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
-  
-  const firebaseConfig = { /* usa il tuo config già presente */ };
-  const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
-  const db = getFirestore(app);
-  
-  async function caricaStatistiche(locale = "zappydemo") {
-    const ordiniRef = collection(db, "locali", locale, "ordini");
-    const ordiniSnap = await getDocs(ordiniRef);
-  
-    const stats = {
-      perGiorno: {},
-      prodottiVenduti: {},
-      categorieVendute: {},
-      aggiuntiAlCarrello: {},
-    };
-  
-    ordiniSnap.forEach(doc => {
-      const ordine = doc.data();
-      const data = ordine.data?.toDate().toLocaleDateString('it-IT', { weekday: 'short' });
-      stats.perGiorno[data] = (stats.perGiorno[data] || 0) + 1;
-  
-      ordine.prodotti?.forEach(p => {
-        stats.prodottiVenduti[p.nome] = (stats.prodottiVenduti[p.nome] || 0) + p.quantita;
-        stats.categorieVendute[p.categoria] = (stats.categorieVendute[p.categoria] || 0) + p.quantita;
-        stats.aggiuntiAlCarrello[p.nome] = (stats.aggiuntiAlCarrello[p.nome] || 0) + (p.aggiuntoAlCarrello || 0);
+        row.querySelector('[data-act="inc"]').onclick=()=>{ p.quantita++; renderCart(); };
+        row.querySelector('[data-act="dec"]').onclick=()=>{ p.quantita--; if(p.quantita<=0){ carrello.splice(idx,1); } renderCart(); };
+        list.appendChild(row);
       });
-    });
-  
-    aggiornaGrafici(stats);
-  }
-  
-  let grafici = {};
-
-function aggiornaGrafici(stats) {
-  const config = (labels, data, label, color = 'rgba(57, 217, 169, 0.7)') => ({
-    type: 'bar',
-    data: {
-      labels: labels,
-      datasets: [{
-        label: label,
-        data: data,
-        backgroundColor: color
-      }]
-    },
-    options: {
-      responsive: true,
-      scales: { y: { beginAtZero: true } }
+      const totale = carrello.reduce((s,p)=> s + (p.prezzo||0)*(p.quantita||1), 0);
+      $("#totale").textContent = money(totale);
     }
-  });
+    function addToCart(item){
+      const i = carrello.findIndex(x=>x.id===item.id);
+      if(i>=0) carrello[i].quantita += 1;
+      else carrello.push({...item, quantita:1});
+      renderCart();
+      updateHeaderButton();
+    }
 
-  const aggiornaGrafico = (id, labels, data, label) => {
-    if (grafici[id]) grafici[id].destroy();
-    grafici[id] = new Chart(document.getElementById(id), config(labels, data, label));
-  };
+    // ---- HOME (READ) ----
+    async function loadHome(){
+      await renderCategorieGruppi();   // chip in alto
+      await renderSezioni();           // sezioni con prodotti sotto (panini, fritti, ...)
+    }
 
-  aggiornaGrafico('graficoAndamento', Object.keys(stats.perGiorno), Object.values(stats.perGiorno), 'Andamento Ordini');
-  aggiornaGrafico('graficoTopProdotti', Object.keys(stats.prodottiVenduti), Object.values(stats.prodottiVenduti), 'Prodotti più Venduti');
-  aggiornaGrafico('graficoTopOrdini', Object.keys(stats.prodottiVenduti), Object.values(stats.prodottiVenduti), 'Prodotti con più Ordini');
-  aggiornaGrafico('graficoTopCategorie', Object.keys(stats.categorieVendute), Object.values(stats.categorieVendute), 'Categorie più Vendute');
-  aggiornaGrafico('graficoOrdari', Object.keys(stats.perGiorno), Object.values(stats.perGiorno), 'Ordini Giornalieri');
-  aggiornaGrafico('graficoAggiuntiCarrello', Object.keys(stats.aggiuntiAlCarrello), Object.values(stats.aggiuntiAlCarrello), 'Aggiunti al Carrello');
-}
+    // Crea i chip in base al doc 'menu/categorie' (come nella tua struttura)
+    async function renderCategorieGruppi(){
+      const wrap = $("#cats"); wrap.innerHTML="";
+      const docRef = doc(db, "locali", LOCALE, "menu", "categorie");
+      const snap = await getDoc(docRef).catch(()=>null);
+      if(!snap || !snap.exists()){ wrap.innerHTML = "<span class='muted'>Nessuna categoria</span>"; return; }
+      const data = snap.data();
+      const groups = Object.keys(data);
+      const row = document.createElement("div"); row.className="cats"; wrap.appendChild(row);
+      groups.forEach(g=>{
+        const arr = Array.isArray(data[g]) ? data[g] : [];
+        arr.forEach(item=>{
+          const key = item.originale || item.it || item.en;
+          const label = item.it || item.en || key;
+          const b = document.createElement("button");
+          b.className = "cat-chip"; b.textContent = label;
+          b.onclick = ()=> scrollToSection(key);
+          row.appendChild(b);
+        });
+      });
+    }
 
-  
-  window.caricaStatistiche = caricaStatistiche;
+    // Crea le sezioni a lista (come nello screenshot: panini, fritti, pizze, ...)
+    async function renderSezioni(){
+      const root = $("#sections"); root.innerHTML="";
+      const docRef = doc(db, "locali", LOCALE, "menu", "categorie");
+      const snap = await getDoc(docRef).catch(()=>null);
+      if(!snap || !snap.exists()){ root.innerHTML = ""; return; }
+      const data = snap.data();
+      const allKeys = [];
+      Object.keys(data).forEach(g => {
+        (Array.isArray(data[g])?data[g]:[]).forEach(item => {
+          const key = item.originale || item.it || item.en;
+          const label = item.it || item.en || key;
+          allKeys.push({key, label});
+        });
+      });
+
+      for (const {key,label} of allKeys){
+        const sec = document.createElement("div");
+        sec.id = "sec-"+key;
+        const title = document.createElement("div");
+        title.className = "section-label";
+        title.textContent = label.toLowerCase();
+        sec.appendChild(title);
+
+        const grid = document.createElement("div"); grid.className="products"; sec.appendChild(grid);
+        const prodRef = collection(db, "locali", LOCALE, "menu", key, "prodotti");
+        const snapP = await getDocs(prodRef).catch(()=>({docs:[]}));
+        snapP.docs.forEach(d=>{
+          const p = d.data();
+          const card = document.createElement("div"); card.className="card";
+          const imgHTML = p.immagineUrl ? `<img src="${p.immagineUrl}" alt="">` : "<span>🍔</span>";
+          card.innerHTML = `
+            <div class="img">${imgHTML}</div>
+            <div class="meta">
+              <div class="name">${(p.nome && (p.nome.it||p.nome.en||p.nome)) || d.id}</div>
+            </div>
+            <div class="price">€ ${(Number(p.prezzo)||0).toFixed(2)}</div>
+            <button>Aggiungi</button>
+          `;
+          card.querySelector("button").onclick = ()=> addToCart({
+            id: d.id,
+            nome: (p.nome && (p.nome.it||p.nome.en||p.nome)) || d.id,
+            prezzo: Number(p.prezzo)||0,
+            categoria: key
+          });
+          grid.appendChild(card);
+        });
+
+        root.appendChild(sec);
+      }
+    }
+
+    function scrollToSection(key){
+      const el = document.getElementById("sec-"+key);
+      if(!el) return;
+      const top = el.getBoundingClientRect().top + window.scrollY - 90;
+      window.scrollTo({top, behavior:"smooth"});
+      $$(".cat-chip").forEach(x=>x.classList.remove("active"));
+      // set active chip by text match
+      const chip = Array.from(document.querySelectorAll(".cat-chip")).find(c => (c.textContent||'').toLowerCase() === (el.querySelector(".section-label").textContent||'').toLowerCase());
+      if (chip) chip.classList.add("active");
+    }
+
+    // ---- TAVOLI (READ) ----
+    async function loadTavoli(){
+      $("#saleTabs").innerHTML=""; $("#tavoliGrid").innerHTML="";
+      const saleSnap=await getDocs(collection(db,"locali",LOCALE,"sale")).catch(()=>({docs:[]}));
+      const ids=saleSnap.docs.map(d=>d.id);
+      if(!ids.length){ $("#saleTabs").innerHTML="<p class='muted'>Nessuna sala</p>"; return; }
+      if(!currentSala) currentSala=ids[0];
+      ids.forEach(id=>{
+        const b=document.createElement("button"); b.textContent=id; if(id===currentSala)b.classList.add("active");
+        b.onclick=()=>{currentSala=id; $$("#saleTabs button").forEach(x=>x.classList.remove("active")); b.classList.add("active"); renderTavoli(id);};
+        $("#saleTabs").appendChild(b);
+      });
+      renderTavoli(currentSala);
+    }
+    async function renderTavoli(salaId){
+      const grid=$("#tavoliGrid"); grid.innerHTML="";
+      const snap=await getDocs(collection(db,"locali",LOCALE,"sale",salaId,"tavoli")).catch(()=>({docs:[]}));
+      if(!snap.docs.length){ grid.innerHTML="<p>Nessun tavolo</p>"; return; }
+      const parseNum = v => { const m=String(v||"").match(/\\d+/); return m?parseInt(m[0],10):0; };
+      snap.docs.slice().sort((a,b)=>parseNum(a.data().nome||a.id)-parseNum(b.data().nome||b.id)).forEach(docu=>{
+        const d=docu.data();
+        const occ=d?.stato==="occupato"||d?.occupato===true;
+        const card=document.createElement("div");
+        card.className="tavolo-card";
+        card.innerHTML=`
+          <div class="tavolo-badge">T</div>
+          <div class="tavolo-meta">
+            <p class="tavolo-name">${d?.nome||docu.id}</p>
+            <div class="tavolo-stato" style="color:${occ?'#d63031':'#00b894'}">${occ?'Occupato':'Libero'}</div>
+          </div>
+        `;
+        card.onclick=()=>{
+  selectedTable = { salaId, tavoloId: docu.id, tavoloNome: d?.nome||docu.id };
+  markCameFromTable(true);
+  // Apri popup intermedio
+  const t = document.getElementById('popupTavoloTitle');
+  if(t) t.textContent = 'Tavolo ' + (d?.nome||docu.id);
+  const tot = document.getElementById('popupTavoloTotale');
+  if(tot) tot.textContent = '0,00 €';
+  const popup = document.getElementById('popupTavolo');
+  if(popup) popup.style.display='flex';
+};
+        grid.appendChild(card);
+      });
+    }
+
+    // Buttons (placeholders for now)
+    $("#btnSubtotale").onclick = ()=> alert("Subtotale (solo UI).");
+    $("#btnPagamento").onclick = ()=> alert("Pagamento (solo UI).");
+    $("#btnPrepara").onclick = ()=> alert("Prepara (solo UI).");
+    // First render of cart
+    renderCart();
   </script>
-<script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
-    import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
-    
-    const firebaseConfig = { 
-      apiKey: "AIzaSyC-yyxd1dxn16hx9AUZDKgFpPLWl-YfWnHE",
-      authDomain: "zappy-24d29.firebaseapp.com",
-      projectId: "zappy-24d29",
-      storageBucket: "zappy-24d29.appspot.com",
-      messagingSenderId: "356775808247",
-      appId: "1:356775808247:web:a5395430ad3dc9aa7c17f2"
-    };
-    const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
-    const db = getFirestore(app);
-    
-    async function caricaStatistiche() {
-      const ordiniRef = collection(db, "locali", "zappydemo", "ordini");
-      const ordiniSnap = await getDocs(ordiniRef);
-    
-      const stats = {
-        perGiorno: {},
-        prodottiVenduti: {},
-        categorieVendute: {},
-        aggiuntiAlCarrello: {},
-      };
-    
-      ordiniSnap.forEach(doc => {
-        const ordine = doc.data();
-        const data = ordine.data.toDate().toLocaleDateString('it-IT', { weekday: 'short' });
-        stats.perGiorno[data] = (stats.perGiorno[data] || 0) + 1;
-    
-        ordine.prodotti?.forEach(p => {
-          stats.prodottiVenduti[p.nome] = (stats.prodottiVenduti[p.nome] || 0) + p.quantita;
-          stats.categorieVendute[p.categoria] = (stats.categorieVendute[p.categoria] || 0) + p.quantita;
-          stats.aggiuntiAlCarrello[p.nome] = (stats.aggiuntiAlCarrello[p.nome] || 0) + (p.aggiuntoAlCarrello || 0);
-        });
-      });
-    
-      aggiornaGrafici(stats);
-    }
-    
-    let grafici = {};
-    
-    function aggiornaGrafici(stats) {
-      const config = (id, labels, data, label, color = 'rgba(57, 217, 169, 0.7)') => ({
-        type: 'bar',
-        data: {
-          labels,
-          datasets: [{ label, data, backgroundColor: color }]
-        },
-        options: { responsive: true, scales: { y: { beginAtZero: true } } }
-      });
-    
-      const aggiornaGrafico = (id, labels, data, label) => {
-        if (grafici[id]) grafici[id].destroy();
-        grafici[id] = new Chart(document.getElementById(id), config(id, labels, data, label));
-      };
-    
-      aggiornaGrafico('graficoAndamento', Object.keys(stats.perGiorno), Object.values(stats.perGiorno), 'Andamento Ordini');
-      aggiornaGrafico('graficoTopProdotti', Object.keys(stats.prodottiVenduti), Object.values(stats.prodottiVenduti), 'Prodotti più venduti');
-      aggiornaGrafico('graficoTopOrdini', Object.keys(stats.prodottiVenduti), Object.values(stats.prodottiVenduti), 'Prodotti con più ordini');
-      aggiornaGrafico('graficoTopCategorie', Object.keys(stats.categorieVendute), Object.values(stats.categorieVendute), 'Categorie più vendute');
-      aggiornaGrafico('graficoAggiuntiCarrello', Object.keys(stats.aggiuntiAlCarrello), Object.values(stats.aggiuntiAlCarrello), 'Aggiunti al Carrello');
-    }
-    
-    window.caricaStatistiche = caricaStatistiche;
-    </script>
-<script type="module">
-// === NAV: Home <-> Tavoli ===
-(function(){
-  const content = document.querySelector('.content');
-  const paginaTavoli = document.getElementById('paginaTavoli');
-  function mostraHome(){
-    if (content) content.style.display = 'flex';
-    if (paginaTavoli) paginaTavoli.style.display = 'none';
-    const side = document.querySelector('.riepilogo-order');
-    if (side) side.style.display = 'block';
-}
-  function mostraTavoli(){
-    if (content) content.style.display = 'none';
-    if (paginaTavoli) paginaTavoli.style.display = 'block';
-    // Se il bottone TUTTI è presente e attivo, carico tutti
-    if (typeof caricaTuttiTavoli === 'function') caricaTuttiTavoli();
-  
-  ensureBackButton();
-}
-  window.mostraHome = mostraHome;
-  window.mostraTavoli = mostraTavoli;
-  document.getElementById('btnHome')?.addEventListener('click', mostraHome);
-  document.getElementById('btnTavoli')?.addEventListener('click', mostraTavoli);
-  // Vista iniziale: Home
-  mostraHome();
-})();
-</script>
-<script type="module">
-function ensureBackButton(){
-  const page = document.getElementById('paginaTavoli');
-  if(!page) return;
-  if(!document.getElementById('btnBackVendita')){
-    const wrap = document.createElement('div');
-    wrap.className = 'tavoli-actions';
-    const btn = document.createElement('button');
-    btn.id = 'btnBackVendita';
-    btn.className = 'btn-back-vendita';
-    btn.textContent = 'Torna alla Vendita';
-    btn.addEventListener('click', ()=>{ if (typeof mostraPagina==='function') { mostraPagina('content'); } else if (typeof mostraHome==='function') { mostraHome(); } else { document.querySelector('.content').style.display='block'; document.querySelector('.riepilogo-order').style.display='block'; document.getElementById('paginaTavoli').style.display='none'; } });
-    wrap.appendChild(btn);
-    page.appendChild(wrap);
-  }
-}
-</script>
-<!-- === POPUP ORDINI TAVOLO === -->
-<div aria-label="Ordini tavolo" aria-modal="true" id="popup-ordini-tavolo" role="dialog">
-<div class="box">
-<div class="header">
-<h3 id="titolo-popup-tavolo">Ordini • Tavolo</h3>
-<button class="close" onclick="chiudiPopupOrdiniTavolo()">Chiudi</button>
+
+<!-- Popup Tavolo -->
+<div id="popupTavolo" style="display:none;position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.4);align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.2);width:min(480px,90%);padding:16px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+      <h3 id="popupTavoloTitle" style="margin:0;font-size:18px;font-weight:700;">Tavolo</h3>
+      <button id="popupTavoloClose" class="btn secondary">Chiudi</button>
+    </div>
+    <div id="popupTavoloContent" style="padding:8px 0;color:#555;">Nessun prodotto nel tavolo (tablet).</div>
+    <div style="margin-top:12px;display:flex;justify-content:space-between;align-items:center;">
+      <div style="font-weight:700;">Totale: <span id="popupTavoloTotale">0,00 €</span></div>
+      <div style="display:flex;gap:8px;">
+        <button id="popupTavoloAdd" class="btn">Aggiungi prodotti</button>
+        <button id="popupTavoloPay" class="btn">Vai al pagamento</button>
+      </div>
+    </div>
+  </div>
 </div>
-<div class="content" id="lista-ordini-tavolo">
-<!-- Righe prodotti tavolo qui -->
-</div>
-<div class="footer">
-<div class="totale">Totale: <span id="totale-ordini-tavolo">€ 0,00</span></div>
-<div class="azioni">
-<button class="chiudi" onclick="vaiAdAggiungereProdotti()">Aggiungi prodotti</button>
-<button class="vai-a-pagamento" onclick="vaiAPagamentoDaTavolo()">Vai al pagamento</button>
-</div>
-</div>
-</div>
-</div>
-<script type="module">
-// === Gestione Popup Ordini Tavolo ===
-window._zappyTavoloCorrente = null; // { salaId, tavoloId, nome }
-
-function formatEuro(v) {
-  try { return '€ ' + (v||0).toFixed(2).replace('.', ','); } catch(e){ return '€ 0,00'; }
-}
-
-async function fetchProdottiTavolo(salaId, tavoloId, nomeTavolo) {
-  // 🔌 TENTATIVO FIRESTORE (adatta al tuo schema)
-  // 1) prova: locali/zappydemo/sale/{salaId}/tavoli/{tavoloId}/ordini (collezione)
-  // 2) fallback: locali/zappydemo/ordini (collezione con campo tavoloNome == nomeTavolo e stato == 'aperto')
-  // 3) ultimo fallback: ritorna array vuoto
-  try {
-    const { getFirestore, collection, getDocs, query, where } = await import("https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js");
-    const db = getFirestore();
-
-    // Tentativo 1
-    try {
-      const ref1 = collection(db, "locali", "zappydemo", "sale", salaId, "tavoli", tavoloId, "ordini");
-      const snap1 = await getDocs(ref1);
-      if (!snap1.empty) {
-        let items = [];
-        snap1.forEach(doc => {
-          const d = doc.data() || {};
-          (d.prodotti || []).forEach(p => items.push(p)); // ci aspettiamo {nome, quantita, prezzo}
-        });
-        if (items.length) return items;
-      }
-    } catch(_) {}
-
-    
-    // Tentativo 2: ordini (schema identico a `ordini`)
-    try {
-      const refT = collection(db, "locali", "zappydemo", "ordini");
-      const qT = query(refT, where("tavolo", "==", String(tavoloId)), where("stato", "in", ["APERTO","aperto","in_corso"]));
-      const snapT = await getDocs(qT);
-      if (!snapT.empty) {
-        let items = [];
-        snapT.forEach(doc => {
-          const d = doc.data() || {};
-          (d.prodotti || []).forEach(p => items.push(p));
-        });
-        if (items.length) return items;
-      }
-    } catch(_) {}
-// Tentativo 2
-    try {
-      const ref2 = collection(db, "locali", "zappydemo", "ordini");
-      // Nota: se non hai indici, toglilo/semplifica
-      const q2 = query(ref2, where("tavoloNome", "==", nomeTavolo), where("stato", "in", ["aperto","in_corso"]));
-      const snap2 = await getDocs(q2);
-      if (!snap2.empty) {
-        let items = [];
-        snap2.forEach(doc => {
-          const d = doc.data() || {};
-          (d.prodotti || []).forEach(p => items.push(p));
-        });
-        if (items.length) return items;
-      }
-    } catch(_) {}
-
-  } catch (err) {
-    console.warn("fetchProdottiTavolo Firestore non disponibile:", err);
-  }
-
-  // Fallback di esempio (mostra un placeholder se non troviamo nulla)
-  return [];
-}
-
-async function apriPopupOrdiniTavolo({ salaId, tavoloId, nome }) {
-  window._zappyTavoloCorrente = { salaId, tavoloId, nome };
-  document.getElementById('titolo-popup-tavolo').textContent = 'Ordini • ' + (nome || 'Tavolo');
-
-  const contenitore = document.getElementById('lista-ordini-tavolo');
-  contenitore.innerHTML = '<div style=\"padding:14px;color:#666;\">Caricamento…</div>';
-
-  const items = await fetchProdottiTavolo(salaId, tavoloId, nome);
-  contenitore.innerHTML = '';
-
-  let totale = 0;
-  if (items.length === 0) {
-    contenitore.innerHTML = '<div style=\"padding:14px;color:#666;\">Nessun ordine per questo tavolo.</div>';
-  } else {
-    items.forEach(p => {
-      const q = Number(p.quantita || p.qty || 1);
-      const prezzo = Number(p.prezzo || p.price || 0);
-      totale += q * prezzo;
-
-      const riga = document.createElement('div');
-      riga.className = 'riga';
-      riga.innerHTML = `
-        <div class="nome">${p.nome || p.name || 'Prodotto'}</div>
-        <div class="qty">x${q}</div>
-        <div class="prezzo">${formatEuro(q * prezzo)}</div>
-      `;
-      contenitore.appendChild(riga);
-    });
-  }
-
-  document.getElementById('totale-ordini-tavolo').textContent = formatEuro(totale);
-  document.getElementById('popup-ordini-tavolo').style.display = 'flex';
-}
-
-function chiudiPopupOrdiniTavolo() {
-  document.getElementById('popup-ordini-tavolo').style.display = 'none';
-}
-
-function vaiAPagamentoDaTavolo() {
-  // Qui puoi navigare alla tua vista pagamento o aprire già il popup pagamento esistente
-  try {
-    chiudiPopupOrdiniTavolo();
-    const btn = document.querySelector('.pagamento');
-    if (btn) btn.click();
-  } catch(_) {}
-}
-</script>
-<button id="btn-aggiungi-al-tavolo" onclick="aggiungiCarrelloAlTavolo()">Aggiungi al tavolo</button>
-<script type="module">
-// === Flusso "Aggiungi prodotti" e "Aggiungi al tavolo" ===
-function vaiAdAggiungereProdotti() {
-  // salviamo destinazione e torniamo alla vista prodotti
-  const dest = window._zappyTavoloCorrente;
-  if (!dest) return chiudiPopupOrdiniTavolo();
-  window._zappyDestinazioneTavolo = dest;
-  window.tavoloCorrente = dest;
-  try{ sessionStorage.setItem('zappy_tavolo_corrente', JSON.stringify(dest)); }catch(_){}
-  chiudiPopupOrdiniTavolo();
-  try {
-    // torna alla home prodotti (stesso comportamento di "Torna alla Vendita")
-    const b = document.querySelector('button, a, .btn, .button');
-    // Se esiste un tuo pulsante specifico 'Torna alla Vendita', prova a cliccarlo
-    const backBtn = Array.from(document.querySelectorAll('button, a')).find(el => /torna alla vendita/i.test(el.textContent || ''));
-    (backBtn || b)?.click();
-  } catch (_) {}
-  aggiornaBottoneAggiungiAlTavolo();
-}
-
-function aggiornaBottoneAggiungiAlTavolo() {
-  const btn = document.getElementById('btn-aggiungi-al-tavolo');
-  if (!btn) return;
-  btn.style.display = window._zappyDestinazioneTavolo ? 'inline-flex' : 'none';
-  if (window._zappyDestinazioneTavolo) {
-    btn.textContent = 'Aggiungi al tavolo • ' + (window._zappyDestinazioneTavolo.nome || '');
-  }
-}
-// chiama l'aggiornamento al load
-window.addEventListener('load', aggiornaBottoneAggiungiAlTavolo);
-
-// Prova a leggere gli item del carrello da vari punti noti
-function getCartItemsForZappy() {
-  // 1) Oggetto globale carrello
-  if (window.carrello && Array.isArray(window.carrello.items)) return window.carrello.items;
-  if (Array.isArray(window.carrelloItems)) return window.carrelloItems;
-  if (window.ZAPPY_CART && Array.isArray(window.ZAPPY_CART.items)) return window.ZAPPY_CART.items;
-  // 2) LocalStorage fallback
-  try {
-    const s = localStorage.getItem('zappy_cart');
-    if (s) {
-      const j = JSON.parse(s);
-      if (Array.isArray(j.items)) return j.items;
-    }
-  } catch(_) {}
-  return [];
-}
-
-async function aggiungiCarrelloAlTavolo() {
-  const dest = window._zappyDestinazioneTavolo;
-  if (!dest) return;
-  const items = getCartItemsForZappy();
-  if (!items.length) {
-    alert('Il carrello è vuoto.');
-    return;
-  }
-
-  // Scrittura su Firestore
-  try {
-    const { getFirestore, collection, addDoc, setDoc, doc, serverTimestamp } = await import("https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js");
-    const db = getFirestore();
-
-    // Strategia: creare (o aggiornare) un ordine "aperto" per il tavolo
-    // Path preferito: locali/zappydemo/sale/{salaId}/tavoli/{tavoloId}/ordini
-    const base = collection(db, "locali", "zappydemo", "sale", dest.salaId || "sala1", "tavoli", dest.tavoloId || "t1", "ordini");
-    const ordineDoc = doc(base); // nuovo doc per semplicità
-    const puliti = items.map(p => ({
-      nome: p.nome || p.name || 'Prodotto',
-      quantita: Number(p.quantita || p.qty || 1),
-      prezzo: Number(p.prezzo || p.price || 0),
-      note: p.note || ''
-    }));
-
-    await setDoc(ordineDoc, {
-      tavoloNome: dest.nome || '',
-      stato: 'aperto',
-      creatoIl: serverTimestamp(),
-      prodotti: puliti
-    });
-
-    // UI feedback
-    window._zappyDestinazioneTavolo = null;
-    aggiornaBottoneAggiungiAlTavolo();
-    alert('Prodotti aggiunti a ' + (dest.nome || 'tavolo') + '!');
-
-  } catch (err) {
-    console.error('Errore scrittura ordini tavolo:', err);
-    alert('Non sono riuscito ad aggiungere i prodotti. Controlla la connessione a Firebase.');
-  }
-}
-
-// Se l'utente cambia pagina/vista senza usare il bottone, prova a tenere visibile lo stato
-document.addEventListener('click', (e) => {
-  // ogni click ricalcola la visibilità, utile quando torni alla schermata prodotti
-  setTimeout(aggiornaBottoneAggiungiAlTavolo, 50);
-});
-</script>
-<script type="module">
-// === ZAPPY: Modalità "aggiunta prodotti a un tavolo" ===
-window.modalitaTavolo = false;
-window.tavoloCorrente = null;
-
-// Mostra/Nasconde il bottone in sidebar in base alla modalità
-function aggiornaBottoneAggiungiAlTavolo(){
-  const btn = document.getElementById('btnAggAlTavoloSidebar');
-  if(!btn) return;
-  // Visibile solo se in modalitaTavolo e SOLO nella pagina prodotti (cioè quando la sidebar carrello è visibile)
-  btn.style.display = (window.modalitaTavolo === true) ? 'block' : 'none';
-}
-
-// Entra in modalità tavolo (da popup tavolo -> "Aggiungi prodotti")
-window.entraModalitaTavolo = function(info){
-  window.modalitaTavolo = true;
-  window.tavoloCorrente = info || window.tavoloCorrente || null;
-  // Chiudi eventuale popup tavolo
-  const pop = document.getElementById('popup-ordini-tavolo') || document.getElementById('popupTavolo');
-  if(pop) pop.style.display = 'none';
-  // Vai alla pagina prodotti se esiste un pulsante Home
-  const btnHome = document.getElementById('btnHome');
-  if(btnHome) btnHome.click();
-  aggiornaBottoneAggiungiAlTavolo();
-};
-
-// Esce dalla modalità tavolo (quando vai ai tavoli o inizi una vendita diretta)
-window.esciModalitaTavolo = function(){
-  window.modalitaTavolo = false;
-  window.tavoloCorrente = null;
-  aggiornaBottoneAggiungiAlTavolo();
-};
-
-// Tasti laterali: Home (prodotti) e Tavoli
-document.addEventListener('DOMContentLoaded', function(){
-  const btnHome = document.getElementById('btnHome');
-  const btnTavoli = document.getElementById('btnTavoli');
-
-  if(btnHome){
-    // Se l'utente clicca Home manualmente, non è più "da tavolo"
-    btnHome.addEventListener('click', () => {
-      // Manteniamo la modalità solo se esplicitamente entrata da tavolo
-      if(window.modalitaTavolo !== true){
-        esciModalitaTavolo();
-      } else {
-        aggiornaBottoneAggiungiAlTavolo();
-      }
-    });
-  }
-  if(btnTavoli){
-    btnTavoli.addEventListener('click', () => {
-      esciModalitaTavolo();
-    });
-  }
-
-  // Intercetta click sul bottone "Aggiungi prodotti" nel popup dei tavoli
-  document.body.addEventListener('click', (e) => {
-    const t = e.target;
-    const txt = (t.textContent || '').trim().toLowerCase();
-    const insidePopup = t.closest('#popup-ordini-tavolo, #popupTavolo');
-    // Match ampio su testo, ID o classi comuni
-    if( insidePopup && (
-          txt === 'aggiungi prodotti' ||
-          txt.includes('aggiungi prodotti') ||
-          t.id === 'btn-aggiungi-prodotti' ||
-          t.classList.contains('aggiungi-prodotti') ||
-          t.classList.contains('vai-a-prodotti')
-        )){
-      // Prova a recuperare info tavolo dal popup se disponibili come data-*
-      let info = null;
-      const box = t.closest('#popup-ordini-tavolo, #popupTavolo');
-      if(box){
-        info = {
-          salaId: box.getAttribute('data-sala-id') || null,
-          tavoloId: box.getAttribute('data-tavolo-id') || null,
-          nome: box.getAttribute('data-tavolo-nome') || null
-        };
-      }
-      entraModalitaTavolo(info);
-    }
-  });
-
-  // Click sul bottone in sidebar: conferma aggiunta prodotti al tavolo
-  const btnAgg = document.getElementById('btnAggAlTavoloSidebar');
-  if(btnAgg){
-    btnAgg.addEventListener('click', () => {
-      if(!window.modalitaTavolo || !window.tavoloCorrente){
-        // fallback: niente tavolo selezionato
-        alert('Seleziona prima un tavolo.');
-        return;
-      }
-      // TODO: salva carrello su Firestore dentro ordine del tavoloCorrente.
-      // Qui lasciamo il punto di integrazione per lo sviluppatore.
-      console.log('Aggiungo prodotti al tavolo:', window.tavoloCorrente);
-      // Uscita dalla modalità dopo l’invio
-      esciModalitaTavolo();
-    });
-  }
-
-  // All'avvio: se l'hash contiene fromTable abilita modalità
-  if(location.hash && location.hash.starts_with('#fromTable')){
-    try{
-      const payload = decodeURIComponent(location.hash.split(':',1)[0]);
-      // Non parsare complesso: basta abilitare la modalità
-      window.modalitaTavolo = true;
-    }catch(e){}
-  }
-  aggiornaBottoneAggiungiAlTavolo();
-});
-</script>
-<script type="module">
-// === ZAPPY: Salvataggio carrello su Firestore e ritorno ai Tavoli ===
-async function zappySalvaCarrelloSuTavolo() {
-  try {
-    const info = window.tavoloCorrente;
-    if (!info || !info.salaId || !info.tavoloId) {
-      alert('Tavolo non valido.');
-      return false;
-    }
-    const items = (window.carrello || []).map(p => ({
-      nome: p.nome || '',
-      prezzo: p.prezzo || 0,
-      quantita: p.quantita || 1,
-      immagine: p.immagine || null
-    }));
-
-    // Percorso doc ordine singolo
-    const ordineRef = doc(getFirestore(), "locali", "zappydemo", "sale", info.salaId, "tavoli", info.tavoloId, "ordine");
-    const snap = await getDoc(ordineRef);
-    let esistenti = [];
-    if (snap.exists()) {
-      const d = snap.data() || {};
-      esistenti = Array.isArray(d.items) ? d.items : [];
-    }
-
-    // Merge per nome+prezzo
-    const mappa = new Map();
-    for (const it of esistenti) {
-      const key = `${it.nome}__${it.prezzo}`;
-      mappa.set(key, { ...it });
-    }
-    for (const it of items) {
-      const key = `${it.nome}__${it.prezzo}`;
-      if (mappa.has(key)) {
-        const cur = mappa.get(key);
-        cur.quantita = (cur.quantita || 0) + (it.quantita || 0);
-        mappa.set(key, cur);
-      } else {
-        mappa.set(key, { ...it });
-      }
-    }
-    const merged = Array.from(mappa.values());
-
-    await setDoc(ordineRef, {
-      items: merged,
-      totale: (merged||[]).reduce((s,it)=>s + (Number(it.prezzo||0)*(Number(it.quantita||1))),0),
-      source: "tablet",
-      stato: "APERTO",
-      
-      totale: (merged||[]).reduce((s,it)=>s + (Number(it.prezzo||0)*(Number(it.quantita||1))),0),
-      source: "tablet",
-      stato: "APERTO",
-      
-      updatedAt: new Date().toISOString(),
-      tavoloNome: info.nome || null
-    }, { merge: true });
-
-    return true;
-  } catch (err) {
-    console.error('Errore salvataggio ordine tavolo:', err);
-    alert('Errore durante il salvataggio sul tavolo.');
-    return false;
-  }
-}
-
-document.addEventListener('DOMContentLoaded', function(){
-  const btnAgg = document.getElementById('btnAggAlTavoloSidebar');
-  if(btnAgg){
-    btnAgg.addEventListener('click', async () => {
-      if(!window.modalitaTavolo || !window.tavoloCorrente){
-        alert('Seleziona prima un tavolo.');
-        return;
-      }
-      try{ if(!window.tavoloCorrente){ window.tavoloCorrente = JSON.parse(sessionStorage.getItem('zappy_tavolo_corrente')||'null'); } }catch(_){}
-      const ok = await zappySalvaCarrelloSuTavolo();
-      if(ok){
-        // esci dalla modalità tavolo e torna alla pagina Tavoli
-        if (typeof window.esciModalitaTavolo === 'function') window.esciModalitaTavolo();
-        const btnTavoli = document.getElementById('btnTavoli');
-        if(btnTavoli) btnTavoli.click();
-      }
-    });
-  }
-});
-</script>
-<script type="module">
-// === ZAPPY: Apri popup tavolo, imposta dati e prepara "Aggiungi prodotti"
-window.apriPopupOrdiniTavolo = function({ salaId, tavoloId, nome }){
-  try{
-    window.tavoloCorrente = { salaId, tavoloId, nome };
-    window.modalitaTavolo = false; // non ancora in modalità prodotti; verrà abilitata al click "Aggiungi prodotti"
-    const pop = document.getElementById('popup-ordini-tavolo');
-    if(pop){
-      pop.setAttribute('data-sala-id', salaId || '');
-      pop.setAttribute('data-tavolo-id', tavoloId || '');
-      pop.setAttribute('data-tavolo-nome', nome || '');
-      // Aggiorna titolo
-      const h = pop.querySelector('.header h3');
-      if(h) h.textContent = nome ? `Tavolo ${nome}` : 'Tavolo';
-      // Mostra popup
-      pop.style.display = 'flex';
-      // Avvia listener per lo stato corrente del tavolo
-      try { if (typeof listenOrdineTablet === 'function') { listenOrdineTablet({ salaId, tavoloId }); } } catch (err) { console.warn('Listener ordine_corrente non avviato', err); }
-      // Bottoni chiudi
-      const chiudiBtns = pop.querySelectorAll('.close, .chiudi');
-      chiudiBtns.forEach(b => b.onclick = () => { pop.style.display = 'none'; });
-      // Pulsante "Aggiungi prodotti" -> entraModalitaTavolo con info
-      const addBtn = pop.querySelector('#btn-apri-aggiungi-prodotti, .vai-a-pagamento');
-      if(addBtn){
-        addBtn.onclick = () => {
-          // entra in modalità tavolo e passa alla pagina prodotti
-          if(typeof window.entraModalitaTavolo === 'function'){
-            window.entraModalitaTavolo({ salaId, tavoloId, nome });
-          }else{
-            // fallback minimale
-            window.modalitaTavolo = true;
-            const btnHome = document.getElementById('btnHome');
-            if(btnHome) btnHome.click();
-          }
-          pop.style.display = 'none';
-        };
-      }
-    }
-  }catch(e){
-    console.error('apriPopupOrdiniTavolo error:', e);
-  }
-};
-</script>
-<script type="module">
-// === ZAPPY: robust tavolo selection persistence ===
-// Save/retrieve selection in sessionStorage in case the page/UI resets variables.
-function salvaTavoloSelezionato(info){
-  try {
-    if(!info) return;
-    window.tavoloCorrente = info;
-    sessionStorage.setItem('zappy_tavolo_corrente', JSON.stringify(info));
-  } catch(_) {}
-}
-function leggiTavoloSelezionato(){
-  try {
-    if(window.tavoloCorrente && window.tavoloCorrente.tavoloId) return window.tavoloCorrente;
-    const raw = sessionStorage.getItem('zappy_tavolo_corrente');
-    if(raw){
-      const info = JSON.parse(raw);
-      window.tavoloCorrente = info;
-      return info;
-    }
-  } catch(_) {}
-  return null;
-}
-
-// Override helpers to always persist
-(function(){
-  const _oldApri = window.apriPopupOrdiniTavolo;
-  window.apriPopupOrdiniTavolo = function(args){
-    try{
-      if(args) salvaTavoloSelezionato(args);
-    }catch(_){}
-    if(typeof _oldApri === 'function') return _oldApri(args);
-  };
-
-  const _oldEntra = window.entraModalitaTavolo;
-  window.entraModalitaTavolo = function(info){
-    if(info) salvaTavoloSelezionato(info);
-    else leggiTavoloSelezionato();
-    if(typeof _oldEntra === 'function') return _oldEntra(info || window.tavoloCorrente);
-  };
-
-  const _oldEsci = window.esciModalitaTavolo;
-  window.esciModalitaTavolo = function(){
-    if(typeof _oldEsci === 'function') _oldEsci();
-    // non cancelliamo subito lo storage, lo puliremo al salvataggio
-  };
-})();
-
-document.addEventListener('DOMContentLoaded', function(){
-  // Ensure sidebar button tries to read selection before alerting
-  const btnAgg = document.getElementById('btnAggAlTavoloSidebar');
-  if(btnAgg){
-    btnAgg.addEventListener('click', async (ev) => {
-      // if missing, try recovering from storage
-      if(!window.tavoloCorrente || !window.tavoloCorrente.tavoloId){
-        leggiTavoloSelezionato();
-      }
-      if(!window.tavoloCorrente || !window.tavoloCorrente.tavoloId){
-        alert('Seleziona prima un tavolo.');
-        return;
-      }
-      // trigger existing handler (already attached earlier in file)
-      // We don't duplicate logic here.
-    });
-  }
-
-  // When saving successfully, clear the storage key
-  const origSave = window.zappySalvaCarrelloSuTavolo;
-  window.zappySalvaCarrelloSuTavolo = async function(){
-    const ok = await origSave();
-    if(ok){
-      try { sessionStorage.removeItem('zappy_tavolo_corrente'); } catch(_){}
-    }
-    return ok;
-  };
-});
-</script>
-<script type="module">
-// === ZAPPY ROBUST ===
-function zGetFromBodyData(){
-  const b = document.body;
-  if(!b) return null;
-  const salaId = b.getAttribute('data-sala-id') || null;
-  const tavoloId = b.getAttribute('data-tavolo-id') || null;
-  const nome = b.getAttribute('data-tavolo-nome') || null;
-  if(tavoloId) return { salaId, tavoloId, nome };
-  return null;
-}
-function zSaveSelection(info){
-  if(!info) return;
-  window.tavoloCorrente = info;
-  try{ sessionStorage.setItem('zappy_tavolo_corrente', JSON.stringify(info)); }catch(_){}
-  try{
-    document.body.setAttribute('data-sala-id', info.salaId || '');
-    document.body.setAttribute('data-tavolo-id', info.tavoloId || '');
-    document.body.setAttribute('data-tavolo-nome', info.nome || '');
-  }catch(_){}
-}
-function zReadSelection(){
-  // priority: window -> body data -> sessionStorage
-  if(window.tavoloCorrente && window.tavoloCorrente.tavoloId) return window.tavoloCorrente;
-  const fromBody = zGetFromBodyData();
-  if(fromBody){ window.tavoloCorrente = fromBody; return fromBody; }
-  try{
-    const raw = sessionStorage.getItem('zappy_tavolo_corrente');
-    if(raw){
-      const info = JSON.parse(raw);
-      window.tavoloCorrente = info;
-      return info;
-    }
-  }catch(_){}
-  return null;
-}
-
-// Override or define entraModalitaTavolo to always persist and show button
-(function(){
-  const _old = window.entraModalitaTavolo;
-  window.entraModalitaTavolo = function(info){
-    if(info) zSaveSelection(info);
-    const current = zReadSelection();
-    window.modalitaTavolo = true;
-    // mostra pulsante sopra al carrello
-    const btn = document.getElementById('btnAggAlTavoloSidebar');
-    if(btn) btn.style.display = 'block';
-    // chiudi popup (se presente) e vai ai prodotti
-    const pop = document.getElementById('popup-ordini-tavolo') || document.getElementById('popupTavolo');
-    if(pop) pop.style.display = 'none';
-    const home = document.getElementById('btnHome');
-    if(home) home.click();
-    if(typeof _old === 'function') return _old(info || current);
-  };
-})();
-
-// Patch apriPopupOrdiniTavolo to persist on open
-(function(){
-  const _old = window.apriPopupOrdiniTavolo;
-  window.apriPopupOrdiniTavolo = function(args){
-    if(args) zSaveSelection(args);
-    if(typeof _old === 'function') return _old(args);
-  };
-})();
-
-// Replace sidebar click to recover selection before validation
-document.addEventListener('DOMContentLoaded', function(){
-  const btn = document.getElementById('btnAggAlTavoloSidebar');
-  if(btn){
-    // remove all previous listeners by cloning (simple trick)
-    const clone = btn.cloneNode(true);
-    btn.parentNode.replaceChild(clone, btn);
-  }
-  const finalBtn = document.getElementById('btnAggAlTavoloSidebar');
-  if(finalBtn){
-    finalBtn.addEventListener('click', async () => {
-      // recover selection
-      const info = zReadSelection();
-      if(!info || !info.tavoloId){
-        alert('Seleziona prima un tavolo.');
-        return;
-      }
-      window.tavoloCorrente = info;
-      // call existing save function if present
-      if(typeof window.zappySalvaCarrelloSuTavolo === 'function'){
-        const ok = await window.zappySalvaCarrelloSuTavolo();
-        if(ok){
-          // back to Tavoli
-          const btnTav = document.getElementById('btnTavoli');
-          if(btnTav) btnTav.click();
-          // clear mode
-          window.modalitaTavolo = false;
-          try{ sessionStorage.removeItem('zappy_tavolo_corrente'); }catch(_){}
-          try{
-            document.body.removeAttribute('data-sala-id');
-            document.body.removeAttribute('data-tavolo-id');
-            document.body.removeAttribute('data-tavolo-nome');
-          }catch(_){}
-          const b = document.getElementById('btnAggAlTavoloSidebar');
-          if(b) b.style.display = 'none';
-        }
-      }
-    });
-  }
-
-  // When opening the popup, also mirror data-* onto body if present
-  document.body.addEventListener('click', (e) => {
-    const box = e.target.closest('#popup-ordini-tavolo, #popupTavolo');
-    if(box){
-      const info = {
-        salaId: box.getAttribute('data-sala-id') || null,
-        tavoloId: box.getAttribute('data-tavolo-id') || null,
-        nome: box.getAttribute('data-tavolo-nome') || null,
-      };
-      if(info.tavoloId) zSaveSelection(info);
-    }
-  }, true);
-});
-</script>
-<script type="module">
-  import { getApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
-  import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
-
-  const db = getFirestore(getApp());
-
-  // Esporta in window una funzione che usa le API importate correttamente
-  window.zappySalvaCarrelloSuTavolo = async function(){
-    try{
-      const info = window.tavoloCorrente || null;
-      if(!info || !info.salaId || !info.tavoloId){
-        alert('Seleziona prima un tavolo.');
-        return false;
-      }
-      const carrello = Array.isArray(window.carrello) ? window.carrello : [];
-      const items = carrello.map(p => ({
-        nome: p.nome || '',
-        prezzo: Number(p.prezzo || 0),
-        quantita: Number(p.quantita || 1),
-        immagine: p.immagine || null
-      }));
-
-      const ordineRef = doc(db, "locali","zappydemo","sale", info.salaId, "tavoli", info.tavoloId, "stato", "ordine_corrente");
-      const snap = await getDoc(ordineRef);
-      let esistenti = [];
-      if (snap.exists()) {
-        const d = snap.data() || {};
-        esistenti = Array.isArray(d.items) ? d.items : [];
-      }
-
-      const map = new Map();
-      for (const it of esistenti) {
-        const key = `${it.nome}__${Number(it.prezzo)}`;
-        map.set(key, { ...it, prezzo: Number(it.prezzo || 0), quantita: Number(it.quantita || 0) });
-      }
-      for (const it of items) {
-        const key = `${it.nome}__${Number(it.prezzo)}`;
-        if (map.has(key)) {
-          const cur = map.get(key);
-          cur.quantita = (cur.quantita || 0) + (it.quantita || 0);
-          map.set(key, cur);
-        } else {
-          map.set(key, { ...it });
-        }
-      }
-      const merged = Array.from(map.values());
-
-      await setDoc(ordineRef, {
-        items: merged,
-        updatedAt: new Date().toISOString(),
-        tavoloNome: info.nome || null
-      }, { merge: true });
-
-      console.log('[ZAPPY] Ordine salvato su', info);
-      return true;
-    }catch(err){
-      console.error('[ZAPPY] Errore salvataggio:', err);
-      alert('Errore durante il salvataggio sul tavolo.');
-      return false;
-    }
-  };
-</script>
-<script type="module">
-import { getApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
-import { getFirestore, doc, setDoc, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
-
-const db = getFirestore(getApp());
-
-function _sum(items){ try { return items.reduce((s,p)=> s + Number(p.prezzo||0)*Number(p.quantita||0), 0); } catch { return 0; } }
-
-// Salvataggio carrello -> ordini con lo stesso schema di 'ordini'
-window.zappySalvaCarrelloSuTavolo = async function(){
-  const info = (window.tavoloCorrente) || null;
-  const carrello = Array.isArray(window.carrello) ? window.carrello : [];
-  try{
-    if(!info || !info.salaId || !info.tavoloId){
-      alert("Seleziona prima un tavolo.");
-      return false;
-    }
-    if(!carrello.length){
-      alert("Il carrello è vuoto.");
-      return false;
-    }
-    // normalizza prodotti
-    const prodotti = carrello.map(p => ({
-      nome: p?.nome ?? p?.name ?? "Prodotto",
-      quantita: Number(p?.quantita ?? p?.qty ?? 1) || 1,
-      prezzo: Number(p?.prezzo ?? p?.price ?? 0) || 0,
-      note: p?.note || ""
-    }));
-    const totale = _sum(prodotti);
-
-    // 1) Stato corrente per tavolo (opzionale, utile alla UI del tavolo)
-    const ordinePath = ["locali","zappydemo","sale",info.salaId,"tavoli",info.tavoloId,"stato","ordine_corrente"];
-    await setDoc(doc(db, ...ordinePath), {
-      prodotti,
-      updatedAt: new Date().toISOString(),
-      tavoloNome: info?.nome ?? null,
-      tavolo: String(info?.tavoloId || info?.nome || ""),
-      source: "tablet",
-      stato: "APERTO",
-      totale
-    }, { merge: true });
-
-    // 2) Storico ordini (schema identico a 'ordini')
-    await addDoc(collection(db, "locali","zappydemo","ordini"), {
-      data: new Date().toLocaleString("it-IT", { day:"2-digit", month:"long", year:"numeric", hour:"2-digit", minute:"2-digit" }),
-      prodotti,
-      stato: "APERTO",
-      tavolo: String(info?.tavoloId || info?.nome || ""),
-      totale,
-      salaId: info?.salaId,
-      tavoloId: info?.tavoloId,
-      createdAt: serverTimestamp(),
-      source: "tablet"
-    });
-
-    console.log("[ZAPPY] Ordine tablet salvato (schema = 'ordini') OK");
-    return true;
-  }catch(err){
-    console.error("[ZAPPY] SAVE ERROR:", err);
-    alert("Errore durante il salvataggio su ordini. " + (err.code||"") + " " + (err.message||""));
-    return false;
-  }
-};
-</script>
-<script type="module">
-import { getApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
-import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
-
-const db = getFirestore(getApp());
-
-function euro(n){ try{ return new Intl.NumberFormat('it-IT',{style:'currency',currency:'EUR'}).format(Number(n||0)); }catch{ return `€ ${Number(n||0).toFixed(2)}`; } }
-function somma(items){ try{ return items.reduce((s,p)=> s + Number(p.prezzo||0)*Number(p.quantita||0),0);}catch{ return 0; } }
-
-// Rende il contenuto nel popup tavolo (se non esistono i nodi li crea al volo)
-function renderOrdinePopup(data){
-  const pop = document.getElementById('popup-ordini-tavolo') || document.getElementById('popupTavolo');
-  if(!pop){
-    console.warn('[ZAPPY] Popup tavolo non trovato.');
-    return;
-  }
-  let content = pop.querySelector('.content');
-  if(!content){
-    content = document.createElement('div');
-    content.className = 'content';
-    pop.appendChild(content);
-  }
-  content.innerHTML = ''; // reset
-
-  const items = Array.isArray(data?.items) ? data.items : [];
-  if(items.length === 0){
-    const empty = document.createElement('div');
-    empty.style.padding = '8px 0';
-    empty.style.opacity = '0.7';
-    empty.textContent = 'Nessun prodotto nel tavolo (tablet).';
-    content.appendChild(empty);
-  } else {
-    items.forEach(it => {
-      const row = document.createElement('div');
-      row.style.display = 'grid';
-      row.style.gridTemplateColumns = '1fr auto auto';
-      row.style.gap = '8px';
-      row.style.alignItems = 'center';
-      row.style.padding = '6px 0';
-
-      const name = document.createElement('div');
-      name.innerHTML = `<strong>${it.nome || ''}</strong><br><small>x${it.quantita || 1}</small>`;
-      const price = document.createElement('div');
-      price.textContent = euro(Number(it.prezzo||0));
-      const sub = document.createElement('div');
-      sub.textContent = euro(Number(it.prezzo||0) * Number(it.quantita||1));
-      sub.style.fontWeight = '700';
-
-      row.appendChild(name);
-      row.appendChild(price);
-      row.appendChild(sub);
-      content.appendChild(row);
-    });
-  }
-
-  // Totale nel footer, se esiste
-  let footer = pop.querySelector('.footer');
-  if(!footer){
-    footer = document.createElement('div');
-    footer.className = 'footer';
-    pop.appendChild(footer);
-  }
-  let tot = footer.querySelector('.totale');
-  if(!tot){
-    tot = document.createElement('div');
-    tot.className = 'totale';
-    footer.prepend(tot);
-  }
-  tot.textContent = `Totale: ${euro(somma(items))}`;
-}
-
-// Carica ordine_corrente e lo mostra nel popup
-async function caricaOrdineTabletInPopup(info){
-  try{
-    if(!info || !info.salaId || !info.tavoloId) return;
-    const ordineRef = doc(db, "locali", "zappydemo", "sale", info.salaId, "tavoli", info.tavoloId, "stato", "ordine_corrente");
-    const snap = await getDoc(ordineRef);
-    const data = snap.exists() ? (snap.data() || {}) : { items: [] };
-    renderOrdinePopup(data);
-  }catch(err){
-    console.error('[ZAPPY] Errore caricamento ordine_corrente:', err);
-  }
-}
-
-// Hook: quando apri il popup o setti il tavolo corrente, carica l'ordine
-(function(){
-  const _oldApri = window.apriPopupOrdiniTavolo;
-  window.apriPopupOrdiniTavolo = function(args){
-    if(typeof _oldApri === 'function') _oldApri(args);
-    setTimeout(()=> caricaOrdineTabletInPopup(args || window.tavoloCorrente || null), 0);
-  };
-})();
-</script>
-<script type="module">
-import { getApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
-import { getFirestore, doc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
-
-const db = getFirestore(getApp());
-let __zappyUnsubOrdineTablet = null;
-
-function euro(n){ try{ return new Intl.NumberFormat('it-IT',{style:'currency',currency:'EUR'}).format(Number(n||0)); }catch{ return `€ ${Number(n||0).toFixed(2)}`; } }
-function somma(items){ try{ return items.reduce((s,p)=> s + Number(p.prezzo||0)*Number(p.quantita||0),0);}catch{ return 0; } }
-
-function renderOrdinePopup(data){
-  const pop = document.getElementById('popup-ordini-tavolo') || document.getElementById('popupTavolo');
-  if(!pop) return;
-  let content = pop.querySelector('.content');
-  if(!content){ content = document.createElement('div'); content.className='content'; pop.appendChild(content); }
-  content.innerHTML = '';
-
-  const items = Array.isArray(data?.items) ? data.items : [];
-  if(items.length === 0){
-    const empty = document.createElement('div');
-    empty.style.padding = '10px 12px';
-    empty.style.background = 'rgba(0,0,0,0.03)';
-    empty.style.borderRadius = '10px';
-    empty.textContent = 'Nessun prodotto nel tavolo (tablet).';
-    content.appendChild(empty);
-  } else {
-    items.forEach(it => {
-      const row = document.createElement('div');
-      row.style.display='grid';
-      row.style.gridTemplateColumns='1fr auto auto';
-      row.style.gap='8px';
-      row.style.alignItems='center';
-      row.style.padding='8px 0';
-      row.innerHTML = `
-        <div><strong>${it.nome||''}</strong><br><small>x${it.quantita||1}</small></div>
-        <div>${euro(Number(it.prezzo||0))}</div>
-        <div style="font-weight:700">${euro(Number(it.prezzo||0)*Number(it.quantita||1))}</div>`;
-      content.appendChild(row);
-    });
-  }
-
-  let footer = pop.querySelector('.footer');
-  if(!footer){ footer = document.createElement('div'); footer.className='footer'; pop.appendChild(footer); }
-  let tot = pop.querySelector('.footer .totale');
-  if(!tot){ tot = document.createElement('div'); tot.className='totale'; footer.prepend(tot); }
-  tot.textContent = `Totale: ${euro(somma(items))}`;
-}
-
-// Caricamento realtime dell'ordine tablet nel popup
-async async function listenOrdineTablet(info){
-  if(__zappyUnsubOrdineTablet){ __zappyUnsubOrdineTablet(); __zappyUnsubOrdineTablet = null; }
-  if(!info || !info.salaId || !info.tavoloId) return;
-
-  const ref = doc(db, "locali", "zappydemo", "sale", info.salaId, "tavoli", info.tavoloId, "stato", "ordine_corrente");
-  // primo fetch (fallback)
-  try{
-    const s = await getDoc(ref);
-    renderOrdinePopup(s.exists()? (s.data()||{}) : { items: [] });
-  }catch(err){
-    console.error("[ZAPPY] getDoc ordine_corrente fallita:", err);
-  }
-  // listener realtime
-  __zappyUnsubOrdineTablet = onSnapshot(ref, snap => {
-    const data = snap.exists() ? (snap.data()||{}) : { items: [] };
-    renderOrdinePopup(data);
-  }, err => console.error("[ZAPPY] onSnapshot ordine_corrente:", err));
-}
-
-// Hook su apriPopupOrdiniTavolo
-(function(){
-  const _old = window.apriPopupOrdiniTavolo;
-  window.apriPopupOrdiniTavolo = function(args){
-    if(typeof _old === 'function') _old(args);
-    const info = args || window.tavoloCorrente || null;
-    // aggiorna intestazione (già presente) e attiva listener
-    setTimeout(()=> listenOrdineTablet(info), 0);
-  };
-})();
-
-// Disattiva listener quando si chiude il popup (se il bottone ha classe .chiudi o .close)
-document.addEventListener('click', (e)=>{
-  if(e.target.closest('.chiudi, .close')){
-    if(__zappyUnsubOrdineTablet){ __zappyUnsubOrdineTablet(); __zappyUnsubOrdineTablet = null; }
-  }
-});
-</script>
-
-<script type="module">
-import { getApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
-import { getFirestore, doc, setDoc, collection, addDoc } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
-
-const db = getFirestore(getApp());
-function sum(items){ try { return items.reduce((s,p)=> s + Number(p.prezzo||0)*Number(p.quantita||0), 0);} catch{return 0;} }
-
-// FINAL save used by the sidebar button
-window.zappySalvaCarrelloSuTavolo = async function(){
-  const info = window.tavoloCorrente || null;
-  const carrello = Array.isArray(window.carrello) ? window.carrello : [];
-  console.log("[ZAPPY][SAVE] tavoloCorrente:", info);
-  console.log("[ZAPPY][SAVE] carrello:", carrello);
-  try{
-    if(!info || !info.salaId || !info.tavoloId){
-      alert("Seleziona prima un tavolo.");
-      return false;
-    }
-    const items = carrello.map(p => ({
-      nome: p?.nome ?? "",
-      prezzo: Number(p?.prezzo ?? 0),
-      quantita: Number(p?.quantita ?? 1),
-      immagine: p?.immagine ?? null
-    }));
-    const totale = sum(items);
-
-    // 1) Stato aperto nel tavolo (tablet)
-    const ordineRef = doc(db, "locali","zappydemo","sale", info.salaId, "tavoli", info.tavoloId, "stato", "ordine_corrente");
-    console.log("[ZAPPY][SAVE] setDoc ->", "locali/zappydemo/sale/"+info.salaId+"/tavoli/"+info.tavoloId+"/stato/ordine_corrente");
-    await setDoc(ordineRef, {
-      items, totale, source:"tablet", stato:"APERTO",
-      tavoloNome: info?.nome ?? null, updatedAt: new Date().toISOString(),
-      debugWrite:true
-    }, { merge:true });
-
-    // 2) Storico ordini
-    const collTablet = collection(db, "locali","zappydemo","ordini");
-    const add1 = await addDoc(collTablet, {
-      tavoloId: info.tavoloId, salaId: info.salaId, tavoloNome: info?.nome ?? null,
-      items, totale, createdAt: new Date().toISOString(), source:"tablet", stato:"APERTO", debugWrite:true
-    });
-    console.log("[ZAPPY][SAVE] addDoc ordini id:", add1.id);
-
-    // 3) (TEMP) Scrivi anche nello storico esistente 'ordini' per verifica visiva
-    const collLegacy = collection(db, "locali","zappydemo","ordini");
-    const add2 = await addDoc(collLegacy, {
-      tavoloId: info.tavoloId, salaId: info.salaId, tavoloNome: info?.nome ?? null,
-      items, totale, createdAt: new Date().toISOString(), source:"tablet_debug", stato:"APERTO", debugWrite:true
-    });
-    console.log("[ZAPPY][SAVE] addDoc ordini (legacy) id:", add2.id);
-
-    console.log("[ZAPPY][SAVE] COMPLETATO ✅");
-    return true;
-  }catch(err){
-    console.error("[ZAPPY][SAVE] ERROR:", err);
-    alert("Salvataggio fallito: " + (err.code||"") + " " + (err.message||""));
-    return false;
-  }
-};
-</script>
-
-<!-- ZAPPY OVERRIDE v2: ordini strutturato come 'ordini' -->
-<script type="module">
-  import { getApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
-  import { getFirestore, collection, addDoc, serverTimestamp, query, where, orderBy, limit, onSnapshot } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
-
-  const db = getFirestore(getApp());
-  const LOCALE_ID = "zappydemo";
-
-  function formatDateIT(d=new Date()){
-    try {
-      return d.toLocaleString("it-IT", { day:"2-digit", month:"long", year:"numeric", hour:"2-digit", minute:"2-digit" });
-    } catch { return d.toISOString(); }
-  }
-
-  function getProdottiFromCart(){
-    let prodotti = [];
-    try {
-      if (typeof window.getCartItemsForZappy === "function") prodotti = window.getCartItemsForZappy();
-      else if (Array.isArray(window.cartItems)) prodotti = window.cartItems;
-      else if (Array.isArray(window.carrello)) prodotti = window.carrello;
-    } catch {}
-    return (prodotti || []).map(p => {
-      const prezzo = Number(p?.prezzo) || 0;
-      const quantita = Number(p?.quantita ?? p?.qty ?? 1) || 1;
-      return {
-        nome: p?.nome ?? p?.name ?? "Prodotto",
-        prezzo,
-        quantita,
-        totale: +(prezzo * quantita).toFixed(2)
-      };
-    });
-  }
-
-  function totaleProdotti(prodotti){
-    try { return +(prodotti.reduce((s,p)=> s + (Number(p.totale)||0), 0).toFixed(2)); }
-    catch { return 0; }
-  }
-
-  // === SAVE: crea un doc in ordini con la STESSA struttura di `ordini` ===
-  window.aggiungiCarrelloAlTavolo = async function(){
-    const info = window._zappyDestinazioneTavolo || window.tavoloCorrente;
-    if (!info || !info.salaId || !info.tavoloId) { alert("Seleziona un tavolo."); return; }
-
-    const prodotti = getProdottiFromCart();
-    if (!prodotti.length) { alert("Carrello vuoto."); return; }
-
-    const totale = totaleProdotti(prodotti);
-
-    await addDoc(collection(db, "locali", LOCALE_ID, "ordini"), {
-      data: formatDateIT(new Date()),
-      prodotti,                  // <-- stessa chiave di `ordini`
-      stato: "APERTO",
-      tavolo: String(info.tavoloId || info.nome || ""),
-      totale,
-      // metto anche questi per filtri/analisi (non usati dal renderer)
-      salaId: info.salaId,
-      tavoloId: info.tavoloId,
-      createdAt: serverTimestamp(),
-      source: "tablet"
-    });
-
-    alert("Prodotti aggiunti al tavolo!");
-    const bt = document.getElementById("btnTavoli");
-    if (bt) bt.click();
-  };
-
-  // === LISTEN: popup legge da ordini (formato come `ordini`) ===
-  window.listenOrdineTablet = function(info){
-    try {
-      if (window.__zappyUnsubOrdiniTablet) { window.__zappyUnsubOrdiniTablet(); window.__zappyUnsubOrdiniTablet = null; }
-      if (!info || !info.tavoloId) return;
-
-      const q = query(
-        collection(db, "locali", LOCALE_ID, "ordini"),
-        where("tavolo", "==", String(info.tavoloId)),
-        where("stato", "==", "APERTO"),
-        orderBy("createdAt", "desc"),
-        limit(1)
-      );
-
-      window.__zappyUnsubOrdiniTablet = onSnapshot(q, snap => {
-        if (snap.empty) {
-          if (typeof window.renderOrdinePopup === "function") window.renderOrdinePopup({ prodotti: [], totale: 0 });
-          return;
-        }
-        const data = snap.docs[0].data() || {};
-        if (typeof window.renderOrdinePopup === "function") window.renderOrdinePopup(data);
-      }, err => console.error("[ZAPPY] ordini listener:", err));
-    } catch (e) {
-      console.error("[ZAPPY] listenOrdineTablet error:", e);
-    }
-  };
-
-  // === Renderer robusto (accetta prodotti[] o items[]) ===
-  (function(){
-    const prev = window.renderOrdinePopup;
-    window.renderOrdinePopup = function(data){
-      const arr = Array.isArray(data?.prodotti) ? data.prodotti : (Array.isArray(data?.items) ? data.items : []);
-      const prodotti = arr.map(p => ({
-        nome: p.nome ?? "Prodotto",
-        prezzo: Number(p.prezzo) || 0,
-        quantita: Number(p.quantita) || 1,
-        totale: Number(p.totale) || ((Number(p.prezzo)||0)*(Number(p.quantita)||1))
-      }));
-      const tot = totaleProdotti(prodotti);
-      // se hai già un tuo renderer, lascialo fare
-      if (typeof prev === "function") { try { prev({ prodotti, totale: tot }); return; } catch {} }
-      // fallback minimal
-      const pop = document.getElementById("popup-ordini-tavolo") || document.getElementById("popupTavolo");
-      if (!pop) return;
-      let content = pop.querySelector(".content");
-      if (!content) { content = document.createElement("div"); content.className = "content"; pop.appendChild(content); }
-      content.innerHTML = "";
-      if (!prodotti.length) {
-        const d = document.createElement("div");
-        d.style.opacity = "0.7"; d.style.padding = "8px 0";
-        d.textContent = "Nessun prodotto nel tavolo (tablet).";
-        content.appendChild(d);
-      } else {
-        prodotti.forEach(p => {
-          const r = document.createElement("div");
-          r.style.display="grid"; r.style.gridTemplateColumns="1fr auto auto"; r.style.gap="8px"; r.style.padding="6px 0";
-          r.innerHTML = `<div><strong>${p.nome}</strong><br><small>x${p.quantita}</small></div>
-                         <div>€ ${(p.prezzo).toFixed(2)}</div>
-                         <div style="font-weight:700">€ ${(p.totale).toFixed(2)}</div>`;
-          content.appendChild(r);
-        });
-      }
-      let footer = pop.querySelector(".footer"); if (!footer) { footer = document.createElement("div"); footer.className="footer"; pop.appendChild(footer); }
-      let totEl = footer.querySelector(".totale"); if (!totEl) { totEl = document.createElement("div"); totEl.className="totale"; footer.prepend(totEl); }
-      totEl.textContent = `Totale: € ${tot.toFixed(2)}`;
-    };
-  })();
-</script>
-
 
 </body>
+
+<script>
+document.getElementById('popupTavoloClose').onclick = ()=>{
+  document.getElementById('popupTavolo').style.display='none';
+  selectedTable = null; markCameFromTable(false); updateHeaderButton();
+};
+
+document.getElementById('popupTavoloAdd').onclick = ()=>{
+  const popup = document.getElementById('popupTavolo');
+  if(popup) popup.style.display='none';
+  try { navTo('home'); } catch(e) { location.hash = '#home'; }
+  try { markCameFromTable(true); updateHeaderButton(); } catch(e) {}
+};
+
+document.getElementById('popupTavoloPay').onclick = ()=>{
+  document.getElementById('popupTavolo').style.display='none';
+  alert('Funzione pagamento da implementare'); // segnaposto
+};
+</script>
+
 </html>
