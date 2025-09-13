@@ -1563,8 +1563,17 @@ grid.appendChild(card);
     // First render of cart
     renderCart();
   
-// === STAMPA AUTOMATICA ORDINI da Firestore con RawBT ===
+// === STAMPA AUTOMATICA ORDINI (listener Firestore + RawBT via INTENT) ===
 import { onSnapshot, updateDoc } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
+
+function openRawBT(text){
+  const encoded = encodeURIComponent(text);
+  // Prefer Android intent (consente in alcune ROM il "Sempre")
+  const intentUrl = `intent://print?text=${encoded}#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end`;
+  const rawbtUrl  = `rawbt:print?text=${encoded}`;
+  try { window.location.href = intentUrl; } catch(e) {}
+  setTimeout(()=>{ try { window.location.href = rawbtUrl; } catch(e){} }, 350);
+}
 
 const ordiniRef = collection(db, "locali", LOCALE, "ordini");
 
@@ -1572,36 +1581,38 @@ onSnapshot(ordiniRef, (snapshot) => {
   snapshot.docChanges().forEach((change) => {
     if (change.type === "added") {
       const ordine = change.doc.data();
-      stampaOrdine(change.doc.id, ordine);
+      if (!ordine.printed) {
+        stampaOrdine(change.doc.id, ordine).catch(console.error);
+      }
     }
   });
 });
 
 async function stampaOrdine(id, ordine) {
-  if (ordine.printed) return;
-
+  // Ticket minimale (nessun prezzo/totale)
   let testo = `🧾 Ordine #${id.slice(0,6)}\n`;
-  testo += `🪑 Tavolo: ${ordine.tavolo || "-"}\n`;
-  testo += `📅 ${ordine.data || ""}\n\n`;
-
+  if (ordine.tavolo) testo += `🪑 Tavolo: ${ordine.tavolo}\n`;
+  if (ordine.data)   testo += `📅 ${ordine.data}\n`;
+  testo += `\n`;
   if (Array.isArray(ordine.prodotti)) {
     ordine.prodotti.forEach(p => {
-      testo += `• ${p.quantita || 1}x ${p.nome}\n`;
+      const q = p?.quantita ?? 1;
+      const n = p?.nome ?? "Prodotto";
+      testo += `• ${q}x ${n}\n`;
     });
   }
+  if (ordine.stato) testo += `\nStato: ${ordine.stato}\n`;
 
-  testo += `\nStato: ${ordine.stato || "-"}\n`;
-
-  // Apri RawBT
-  const url = `rawbt:print?text=${encodeURIComponent(testo)}`;
-  window.open(url, '_blank');
+  // Avvio RawBT (intent + fallback)
+  openRawBT(testo);
 
   // Marca come stampato
   const ref = doc(db, "locali", LOCALE, "ordini", id);
-  await updateDoc(ref, {
-    printed: true,
-    printedAt: new Date().toLocaleString()
-  });
+  try {
+    await updateDoc(ref, { printed: true, printedAt: new Date().toISOString() });
+  } catch (e) {
+    console.error("update printed failed", e);
+  }
 }
 </script>
 
