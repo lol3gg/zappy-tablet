@@ -296,6 +296,89 @@
   font-size: 18px !important;
 }
 
+
+.settings-btn-wrap {
+  margin-top: auto;
+}
+.sidebar {
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: space-between !important;
+}
+
+
+.settings-card {
+  background: #fff;
+  border: 1px solid #e3e8ff;
+  border-radius: 16px;
+  padding: 16px;
+  margin-top: 20px;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+}
+.settings-card h3 {
+  margin-top: 0;
+  font-size: 18px;
+}
+.settings-card p {
+  margin: 6px 0 12px;
+}
+
+
+.wizard-step { display: none; }
+.wizard-step.active { display: block; }
+.wizard-step {
+  background: #f8f9ff;
+  border: 1px solid #e3e8ff;
+  border-radius: 12px;
+  padding: 20px;
+  margin-top: 15px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+}
+.wizard-step h4 { margin-top: 0; }
+.input {
+  display: block;
+  width: 100%;
+  padding: 8px;
+  margin: 6px 0 14px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+}
+
+
+.wizard-progress {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+.step-dot {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #ccc;
+  color: white;
+  font-size: 14px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  z-index: 2;
+}
+.step-dot.active {
+  background: #39d9a9;
+}
+.step-line {
+  flex: 1;
+  height: 4px;
+  background: #ccc;
+  margin: 0 6px;
+  z-index: 1;
+}
+.step-dot.completed {
+  background: #127a36;
+}
+
 </style>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -966,8 +1049,23 @@ aside.sidebar .nav-btn svg .fill-3{ fill: #6A00FF; }
   <rect class="fill-3" x="17" y="4" width="4" height="15.5" rx="1.2"/>
 </svg>
 </button>
+
     </nav>
-  </aside>
+  
+  
+
+  <!-- Bottone impostazioni in basso (SIDEBAR) -->
+  <div class="settings-btn-wrap">
+    <button class="nav-btn" data-view="impostazioni" title="Impostazioni">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path class="stroke" d="M10.3 2h3.4l.7 2.2c.2.6.8 1 1.4 1.1l2.3.3c.6.1 1.1.5 1.3 1.1l1.1 2-1.7 1.7c-.4.4-.5 1-.3 1.5l.6 2.3c.2.6 0 1.2-.5 1.6l-2 1.1c-.5.3-1.1.3-1.6 0l-1.9-1.1a1.6 1.6 0 0 0-1.6 0l-1.9 1.1c-.5.3-1.1.3-1.6 0l-2-1.1a1.6 1.6 0 0 1-.5-1.6l.6-2.3c.1-.5 0-1.1-.3-1.5L3.5 8.7l1.1-2c.3-.5.8-1 1.3-1.1l2.3-.3c.6-.1 1.1-.5 1.4-1.1L10.3 2z"/>
+        <circle class="fill-2" cx="12" cy="12" r="3"/>
+      </svg>
+    </button>
+  </div>
+
+</aside>
+
 
   <main class="main">
     <header class="header">
@@ -1075,6 +1173,105 @@ aside.sidebar .nav-btn svg .fill-3{ fill: #6A00FF; }
     </div>
   </div>
 </section>
+      <!-- LEFT: IMPOSTAZIONI -->
+      <section class="view hidden" id="view-impostazioni">
+        <h2>Impostazioni</h2>
+        <p class="muted">Qui potrai gestire le impostazioni del locale.</p>
+  <div class="settings-card">
+    <h3>Onboarding Stripe Connect</h3>
+    
+    <div id="wizardProgress" class="wizard-progress">
+      <div class="step-dot active" data-step="1">1</div>
+      <div class="step-line"></div>
+      <div class="step-dot" data-step="2">2</div>
+      <div class="step-line"></div>
+      <div class="step-dot" data-step="3">3</div>
+      <div class="step-line"></div>
+      <div class="step-dot" data-step="4">4</div>
+    </div>
+
+    <div id="stripeWizard">
+      <!-- Step 1: Tipo account -->
+      <div class="wizard-step active" data-step="1">
+        <h4>Tipo di account</h4>
+        <p>Seleziona il tipo di account da collegare:</p>
+        <select id="accountType" class="input">
+          <option value="">-- Seleziona --</option>
+          <option value="individual">Personale / Impresa Individuale</option>
+          <option value="company">Azienda</option>
+          <option value="nonprofit">Associazione (APS / ONLUS / ASD)</option>
+        </select>
+        <button class="btn next-step">Avanti</button>
+      </div>
+
+      <!-- Step 2: Dati personali -->
+      <div class="wizard-step" data-step="2">
+        <h4>Dati personali</h4>
+        <label>Nome</label>
+        <input type="text" id="firstName" class="input" placeholder="Mario">
+        <label>Cognome</label>
+        <input type="text" id="lastName" class="input" placeholder="Rossi">
+        <label>Email</label>
+        <input type="email" id="email" class="input" placeholder="esempio@mail.com">
+        <label>Data di nascita</label>
+        <input type="date" id="dob" class="input">
+        <label>Indirizzo</label>
+        <input type="text" id="address" class="input" placeholder="Via Roma, 10">
+        <label>Codice postale</label>
+        <input type="text" id="postal" class="input" placeholder="00100">
+        <label>Città</label>
+        <input type="text" id="city" class="input" placeholder="Roma">
+        <label>Provincia</label>
+        <input type="text" id="province" class="input" placeholder="RM">
+        <label>Telefono</label>
+        <input type="tel" id="phone" class="input" placeholder="+39 333 1234567">
+        <button class="btn prev-step secondary">Indietro</button>
+        <button class="btn next-step">Avanti</button>
+      </div>
+
+      <!-- Step 3: Coordinate bancarie -->
+      <div class="wizard-step" data-step="3">
+        <h4>Coordinate bancarie</h4>
+        <label>Valuta</label>
+        <select id="currency" class="input">
+          <option value="EUR">EUR - Euro</option>
+          <option value="USD">USD - Dollaro</option>
+        </select>
+        <label>Paese del conto bancario</label>
+        <input type="text" id="bankCountry" class="input" value="Italy">
+        <label>IBAN</label>
+        <input type="text" id="iban" class="input" placeholder="IT60X0542811101000000123456">
+        <label>Conferma IBAN</label>
+        <input type="text" id="ibanConfirm" class="input" placeholder="Ripeti IBAN">
+        <button class="btn prev-step secondary">Indietro</button>
+        <button class="btn next-step">Avanti</button>
+      </div>
+
+      <!-- Step 4: Conferma -->
+      <div class="wizard-step" data-step="4">
+        <h4>Conferma ✅</h4>
+        <p>Hai inserito i seguenti dati:</p>
+        <ul>
+          <li><b>Tipo account:</b> <span id="confirmAccountType"></span></li>
+          <li><b>Nome:</b> <span id="confirmFirstName"></span></li>
+          <li><b>Cognome:</b> <span id="confirmLastName"></span></li>
+          <li><b>Email:</b> <span id="confirmEmail"></span></li>
+          <li><b>Data di nascita:</b> <span id="confirmDob"></span></li>
+          <li><b>Indirizzo:</b> <span id="confirmAddress"></span>, <span id="confirmPostal"></span> <span id="confirmCity"></span> (<span id="confirmProvince"></span>)</li>
+          <li><b>Telefono:</b> <span id="confirmPhone"></span></li>
+          <li><b>Valuta:</b> <span id="confirmCurrency"></span></li>
+          <li><b>Paese conto:</b> <span id="confirmBankCountry"></span></li>
+          <li><b>IBAN:</b> <span id="confirmIBAN"></span></li>
+        </ul>
+        <button class="btn prev-step secondary">Indietro</button>
+      </div>
+    </div>
+  </div>
+    <button id="btnDisconnectStripe" class="btn secondary hidden">Disconnetti</button>
+  </div>
+
+      </section>
+
 
     </div>
 
@@ -1100,7 +1297,9 @@ aside.sidebar .nav-btn svg .fill-3{ fill: #6A00FF; }
           <button class="btn" id="btnPrepara">Prepara</button>
         </div>
       </div>
-    </aside>
+    
+  </aside>
+
   </main>
 
   <!-- ===== MODAL SUBTOTALE ===== -->
@@ -1234,18 +1433,49 @@ aside.sidebar .nav-btn svg .fill-3{ fill: #6A00FF; }
       switchView(v);
     });
     $$(".nav-btn").forEach(b=>b.onclick=()=>navTo(b.dataset.view));
-    function switchView(v){
+    
+// ---- IMPOSTAZIONI STRIPE ----
+async function loadImpostazioni() {
+  const statusEl = $("#stripeStatus");
+  const connectBtn = $("#btnConnectStripe");
+  const disconnectBtn = $("#btnDisconnectStripe");
+
+  const docRef = doc(db, "locali", LOCALE);
+  const snap = await getDoc(docRef).catch(()=>null);
+
+  if (snap && snap.exists() && snap.data().stripeAccountId) {
+    statusEl.textContent = "Stato: collegato ✅ (" + snap.data().stripeAccountId + ")";
+    connectBtn.classList.add("hidden");
+    disconnectBtn.classList.remove("hidden");
+  } else {
+    statusEl.textContent = "Stato: non collegato ❌";
+    connectBtn.classList.remove("hidden");
+    disconnectBtn.classList.add("hidden");
+  }
+
+  connectBtn.onclick = () => {
+    window.location.href = "/api/create-stripe-link?locale=" + LOCALE;
+  };
+
+  disconnectBtn.onclick = async () => {
+    await setDoc(docRef, { stripeAccountId: null }, { merge: true });
+    loadImpostazioni();
+  };
+}
+
+function switchView(v){
       document.body.dataset.view = v;
       $$(".view").forEach(x=>x.classList.add("hidden"));
       $("#view-"+v).classList.remove("hidden");
       if(v==="home") { loadHome(); showOrderPane(true); }
       if(v==="tavoli") { loadTavoli(); showOrderPane(false); }
       if(v==="statistiche") { showOrderPane(false); }
-      updateHeaderButton();
+      if(v==="impostazioni") { loadImpostazioni(); showOrderPane(false); }
+      updateHeaderButton(); updateWhatsappQR();
     }
 
     // ---- CONTEXT ----
-    function markCameFromTable(on){ cameFromTable = !!on; updateHeaderButton(); }
+    function markCameFromTable(on){ cameFromTable = !!on; updateHeaderButton(); updateWhatsappQR(); }
     function updateHeaderButton(){
       const btn = $("#btnAddToTable");
       const cancel = $("#btnCancelTable");
@@ -1257,11 +1487,11 @@ aside.sidebar .nav-btn svg .fill-3{ fill: #6A00FF; }
       badge.textContent = show ? (selectedTable?.tavoloNome || "Tavolo") : "Vendita diretta";
       if(!btn._wired){
         btn._wired = true;
-        btn.onclick = ()=>{ try{ carrello = []; renderCart(); }catch(e){} selectedTable = null; markCameFromTable(false); updateHeaderButton(); };
+        btn.onclick = ()=>{ try{ carrello = []; renderCart(); }catch(e){} selectedTable = null; markCameFromTable(false); updateHeaderButton(); updateWhatsappQR(); };
       }
       if(!cancel._wired){
         cancel._wired = true;
-        cancel.onclick = ()=>{ try{ carrello = []; renderCart(); }catch(e){} selectedTable = null; markCameFromTable(false); updateHeaderButton(); };
+        cancel.onclick = ()=>{ try{ carrello = []; renderCart(); }catch(e){} selectedTable = null; markCameFromTable(false); updateHeaderButton(); updateWhatsappQR(); };
       }
     }
     function showOrderPane(show){
@@ -1341,7 +1571,7 @@ function renderCart(){
       if(i>=0) carrello[i].quantita += 1;
       else carrello.push({...item, quantita:1});
       renderCart();
-      updateHeaderButton();
+      updateHeaderButton(); updateWhatsappQR();
       try{ updateSelectedVisual(); }catch(e){}
     }
 
@@ -1563,57 +1793,109 @@ grid.appendChild(card);
     // First render of cart
     renderCart();
   
-// === STAMPA AUTOMATICA ORDINI (listener Firestore + RawBT via INTENT) ===
-import { onSnapshot, updateDoc } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
+// ---- STRIPE WIZARD FULL ----
+function initStripeWizard() {
+  const steps = document.querySelectorAll("#stripeWizard .wizard-step");
+  let currentStep = 1;
+  const data = {};
 
-function openRawBT(text){
-  const encoded = encodeURIComponent(text);
-  // Prefer Android intent (consente in alcune ROM il "Sempre")
-  const intentUrl = `intent://print?text=${encoded}#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end`;
-  const rawbtUrl  = `rawbt:print?text=${encoded}`;
-  try { window.location.href = intentUrl; } catch(e) {}
-  setTimeout(()=>{ try { window.location.href = rawbtUrl; } catch(e){} }, 350);
+  function showStep(step) {
+    steps.forEach(s => s.classList.remove("active"));
+    const active = document.querySelector(`#stripeWizard .wizard-step[data-step="${step}"]`);
+    if(active) active.classList.add("active");
+    currentStep = step;
+    updateProgress(step);
+
+    if(step === 4) {
+      document.getElementById("confirmAccountType").textContent = data.accountType || "-";
+      document.getElementById("confirmFirstName").textContent = data.firstName || "-";
+      document.getElementById("confirmLastName").textContent = data.lastName || "-";
+      document.getElementById("confirmEmail").textContent = data.email || "-";
+      document.getElementById("confirmDob").textContent = data.dob || "-";
+      document.getElementById("confirmAddress").textContent = data.address || "-";
+      document.getElementById("confirmPostal").textContent = data.postal || "-";
+      document.getElementById("confirmCity").textContent = data.city || "-";
+      document.getElementById("confirmProvince").textContent = data.province || "-";
+      document.getElementById("confirmPhone").textContent = data.phone || "-";
+      document.getElementById("confirmCurrency").textContent = data.currency || "-";
+      document.getElementById("confirmBankCountry").textContent = data.bankCountry || "-";
+      document.getElementById("confirmIBAN").textContent = data.iban || "-";
+    }
+  }
+
+  document.querySelectorAll("#stripeWizard .next-step").forEach(btn => {
+    btn.addEventListener("click", () => {
+      if(currentStep === 1) {
+        data.accountType = document.getElementById("accountType").value;
+      }
+      if(currentStep === 2) {
+        data.firstName = document.getElementById("firstName").value;
+        data.lastName = document.getElementById("lastName").value;
+        data.email = document.getElementById("email").value;
+        data.dob = document.getElementById("dob").value;
+        data.address = document.getElementById("address").value;
+        data.postal = document.getElementById("postal").value;
+        data.city = document.getElementById("city").value;
+        data.province = document.getElementById("province").value;
+        data.phone = document.getElementById("phone").value;
+      }
+      if(currentStep === 3) {
+        data.currency = document.getElementById("currency").value;
+        data.bankCountry = document.getElementById("bankCountry").value;
+        data.iban = document.getElementById("iban").value;
+        let ibanConfirm = document.getElementById("ibanConfirm").value;
+        if(data.iban !== ibanConfirm) {
+          alert("Gli IBAN non coincidono!");
+          return;
+        }
+      }
+      showStep(currentStep+1);
+    });
+  });
+
+  document.querySelectorAll("#stripeWizard .prev-step").forEach(btn => {
+    btn.addEventListener("click", () => showStep(currentStep-1));
+  });
+
+  showStep(1);
+  updateProgress(1);
 }
 
-const ordiniRef = collection(db, "locali", LOCALE, "ordini");
+document.addEventListener("DOMContentLoaded", initStripeWizard);
 
-onSnapshot(ordiniRef, (snapshot) => {
-  snapshot.docChanges().forEach((change) => {
-    if (change.type === "added") {
-      const ordine = change.doc.data();
-      if (!ordine.printed) {
-        stampaOrdine(change.doc.id, ordine).catch(console.error);
-      }
-    }
+
+// ---- UPDATE PROGRESS BAR ----
+function updateProgress(step) {
+  const dots = document.querySelectorAll("#wizardProgress .step-dot");
+  dots.forEach(dot => {
+    const s = parseInt(dot.getAttribute("data-step"));
+    dot.classList.remove("active", "completed");
+    if(s < step) dot.classList.add("completed");
+    if(s === step) dot.classList.add("active");
+  });
+}
+
+
+// ---- WhatsApp QR visibility only in 'impostazioni' ----
+function updateWhatsappQR(){
+  var qr = document.getElementById('whatsapp-assistenza');
+  if(!qr) return;
+  var current = document.body && document.body.dataset ? document.body.dataset.view : null;
+  qr.style.display = (current === 'impostazioni') ? 'block' : 'none';
+}
+
+// Attach to nav and on load
+document.addEventListener('DOMContentLoaded', function(){
+  updateWhatsappQR();
+  // Also attach to nav buttons if present
+  document.querySelectorAll('.nav-btn[data-view]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      // Defer to allow switchView to change dataset
+      setTimeout(updateWhatsappQR, 0);
+    });
   });
 });
 
-async function stampaOrdine(id, ordine) {
-  // Ticket minimale (nessun prezzo/totale)
-  let testo = `🧾 Ordine #${id.slice(0,6)}\n`;
-  if (ordine.tavolo) testo += `🪑 Tavolo: ${ordine.tavolo}\n`;
-  if (ordine.data)   testo += `📅 ${ordine.data}\n`;
-  testo += `\n`;
-  if (Array.isArray(ordine.prodotti)) {
-    ordine.prodotti.forEach(p => {
-      const q = p?.quantita ?? 1;
-      const n = p?.nome ?? "Prodotto";
-      testo += `• ${q}x ${n}\n`;
-    });
-  }
-  if (ordine.stato) testo += `\nStato: ${ordine.stato}\n`;
-
-  // Avvio RawBT (intent + fallback)
-  openRawBT(testo);
-
-  // Marca come stampato
-  const ref = doc(db, "locali", LOCALE, "ordini", id);
-  try {
-    await updateDoc(ref, { printed: true, printedAt: new Date().toISOString() });
-  } catch (e) {
-    console.error("update printed failed", e);
-  }
-}
 </script>
 
   <!-- ===== POPUP TAVOLO (REINSERITO) ===== -->
@@ -1646,14 +1928,14 @@ async function stampaOrdine(id, ordine) {
     if(btnClose){
       btnClose.onclick = ()=>{
         if(pop) pop.style.display='none';
-        try{ selectedTable = null; markCameFromTable(false); updateHeaderButton(); }catch(e){}
+        try{ selectedTable = null; markCameFromTable(false); updateHeaderButton(); updateWhatsappQR(); }catch(e){}
       };
     }
     if(btnAdd){
       btnAdd.onclick = ()=>{
         if(pop) pop.style.display='none';
         try { navTo('home'); } catch(e) { location.hash = '#home'; }
-        try { markCameFromTable(true); updateHeaderButton(); } catch(e) {}
+        try { markCameFromTable(true); updateHeaderButton(); updateWhatsappQR(); } catch(e) {}
       };
     }
     if(btnPay){
@@ -1874,6 +2156,30 @@ setTimeout(()=>{
   if(sec){ renderStats(); }
 }, 200);
 </script>
+
+
+
+
+
+<!-- QR WhatsApp Assistenza (solo in Impostazioni) -->
+<div id="whatsapp-assistenza" style="display:none; position: fixed; bottom: 20px; right: 20px; text-align: center; z-index: 999;">
+  <p style="font-size: 14px; font-weight: 600; color:#333; margin-bottom:8px;">Scansiona il QR per contattarci</p>
+
+  <a href="https://wa.me/393791243514" target="_blank" rel="noopener">
+    <img src="https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=https://wa.me/393791243514" 
+         alt="QR WhatsApp" style="width:140px; height:140px; border-radius:12px; box-shadow:0 2px 6px rgba(0,0,0,0.3); background:#fff;">
+  </a>
+
+  <p style="font-size: 13px; color:#555; margin:8px 0;">oppure</p>
+
+  <a href="https://wa.me/393791243514" target="_blank" rel="noopener" 
+     style="display:flex; align-items:center; justify-content:center; gap:6px; margin-top:4px; padding:10px 14px; border-radius:10px; font-weight:600; font-size:14px; text-decoration:none; background:#25D366; color:#fff; box-shadow:0 2px 6px rgba(0,0,0,0.2);">
+    <img src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg" alt="WhatsApp" style="width:18px; height:18px;">
+    Clicca qui
+  </a>
+</div>
+
+
 
 </body>
 </html>
