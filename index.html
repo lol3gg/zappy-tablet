@@ -1437,7 +1437,7 @@ aside.sidebar .nav-btn svg .fill-3{ fill: #6A00FF; }
 
   <script type="module">
     import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
-    import { getFirestore, collection, getDocs, getDoc, doc } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
+import { getFirestore, collection, getDocs, getDoc, doc, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
 
     // ---- CONFIG ----
     const firebaseConfig = {
@@ -1505,6 +1505,66 @@ async function loadImpostazioni() {
     await setDoc(docRef, { stripeAccountId: null }, { merge: true });
     loadImpostazioni();
   };
+}
+// Funzione per aprire il popup e gestire invio ordine
+function apriPopupOrdine(tipo, localeId, salaId, tavoloId, carrello, totale) {
+  const popup = document.getElementById("popupOrdine");
+  const campoNickname = document.getElementById("campoNickname");
+  const title = document.getElementById("popupTitle");
+
+  popup.classList.remove("hidden");
+
+  // Se PREPARA → mostra campo nickname
+  if (tipo === "prepara") {
+    campoNickname.classList.remove("hidden");
+    title.innerText = "Nuovo Ordine (Prepara)";
+  } else {
+    campoNickname.classList.add("hidden");
+    title.innerText = "Nuovo Ordine (Tavolo " + tavoloId + ")";
+  }
+
+  // Pulsante annulla
+  document.getElementById("popupAnnulla").onclick = () => {
+    popup.classList.add("hidden");
+  };
+
+  // Pulsante invia
+  document.getElementById("popupInvia").onclick = async () => {
+    const stato = document.querySelector("input[name='statoOrdine']:checked").value;
+    const nickname = document.getElementById("nicknameInput").value.trim();
+
+    const ordiniRef = collection(db, "locali", localeId, "ordini");
+    const nuovoOrdine = {
+      prodotti: carrello,
+      totale: totale,
+      where: "tablet",
+      stato: stato,
+      timestamp: serverTimestamp()
+    };
+
+    if (tipo === "prepara") {
+      nuovoOrdine.nickname = nickname || "Anonimo";
+    } else {
+      nuovoOrdine.tavolo = tavoloId;
+      nuovoOrdine.sala = salaId;
+    }
+
+    try {
+      await addDoc(ordiniRef, nuovoOrdine);
+      console.log("Ordine creato:", nuovoOrdine);
+    } catch (e) {
+      console.error("Errore creazione ordine:", e);
+    }
+
+    popup.classList.add("hidden");
+  };
+}
+
+const btnAggiungiTavolo = document.getElementById("btnAggiungiTavolo");
+if (btnAggiungiTavolo) {
+  btnAggiungiTavolo.addEventListener("click", () => {
+    apriPopupOrdine("tavolo", "zappydemo", salaIdSelezionata, tavoloIdSelezionato, carrello, totale);
+  });
 }
 
 function switchView(v){
@@ -1731,7 +1791,7 @@ grid.appendChild(card);
           <div class="tavolo-badge">T</div>
           <div class="tavolo-meta">
             <p class="tavolo-name">${d?.nome||docu.id}</p>
-            <div class="tavolo-stato" style="color:${occ?'#d63031':'#00b894'}">${occ?'Occupato':'Libero'}</div>
+           </div>
           </div>
         `;
         card.onclick=()=>{
@@ -1898,7 +1958,9 @@ function updateSeparataDue(){
     $("#btnCard").onclick=()=>alert("Carte");
     $("#btnOther").onclick=()=>alert("Altro");
     
-    $("#btnPrepara").onclick = ()=> alert("Prepara (solo UI).");
+    $("#btnPrepara").onclick = () => {
+  apriPopupOrdine("prepara", LOCALE, null, null, carrello, cartTotal());
+};
 
     // First render of cart
     renderCart();
@@ -2289,7 +2351,54 @@ setTimeout(()=>{
   </a>
 </div>
 
+<!-- Popup per creazione ordine -->
+<div id="popupOrdine" class="popup hidden">
+  <div class="popup-content">
+    <h2 id="popupTitle">Nuovo Ordine</h2>
 
+    <!-- Campo nickname (solo per flusso PREPARA) -->
+    <div id="campoNickname" class="hidden">
+      <label for="nicknameInput">Nome/Nickname:</label>
+      <input type="text" id="nicknameInput" placeholder="Es. Mario">
+    </div>
+
+    <!-- Scelta stato -->
+    <div class="stato-box">
+      <label><input type="radio" name="statoOrdine" value="PAGATO" checked> PAGATO</label>
+      <label><input type="radio" name="statoOrdine" value="NON PAGATO"> NON PAGATO</label>
+    </div>
+
+    <div class="btn-row">
+      <button id="popupAnnulla" class="btn secondary">Annulla</button>
+      <button id="popupInvia" class="btn">Invia Ordine</button>
+    </div>
+  </div>
+</div>
+
+<style>
+.popup {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.6);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+.popup.hidden { display: none; }
+.popup-content {
+  background: #fff;
+  padding: 20px;
+  border-radius: 12px;
+  width: 300px;
+  text-align: center;
+}
+.stato-box {
+  margin: 15px 0;
+  display: flex;
+  justify-content: space-around;
+}
+</style>
 
 </body>
 </html>
