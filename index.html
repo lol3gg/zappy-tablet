@@ -1068,6 +1068,33 @@ aside.sidebar .nav-btn svg .fill-3{ fill: #6A00FF; }
 }
 </style>
 
+<style id="cronologia-css">
+/* ===== Cronologia styles ===== */
+#view-cronologia h2 {
+  text-align: center;
+  font-size: 32px;
+  font-weight: 900;
+  margin: 20px 0;
+  background: linear-gradient(90deg, #39D9A9, #00B4FF, #6A00FF);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.cronologia-list .card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  padding: 14px;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+.cronologia-list .meta { flex: 1; }
+.cronologia-list .name { font-weight: 700; font-size: 16px; }
+.cronologia-list .muted { font-size: 14px; opacity: 0.7; }
+.cronologia-list .price { font-weight: 800; font-size: 17px; }
+
+</style>
 </head>
 <body>
   <aside class="sidebar">
@@ -1092,6 +1119,9 @@ aside.sidebar .nav-btn svg .fill-3{ fill: #6A00FF; }
   <rect class="fill-3" x="17" y="4" width="4" height="15.5" rx="1.2"/>
 </svg>
 </button>
+
+      <button class="nav-btn" data-view="cronologia" title="Cronologia">📜</button>
+
 
     </nav>
   
@@ -1216,6 +1246,13 @@ aside.sidebar .nav-btn svg .fill-3{ fill: #6A00FF; }
     </div>
   </div>
 </section>
+
+      <!-- LEFT: CRONOLOGIA -->
+      <section class="view hidden" id="view-cronologia">
+        <h2>Cronologia ordini</h2>
+        <div id="cronologia-list" class="cronologia-list"></div>
+      </section>
+
       <!-- LEFT: IMPOSTAZIONI -->
       <section class="view hidden" id="view-impostazioni">
         <h2>Impostazioni</h2>
@@ -2399,6 +2436,120 @@ setTimeout(()=>{
   justify-content: space-around;
 }
 </style>
+
+
+<script type="module">
+  import { getApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
+  import { getFirestore, collection, query, where, orderBy, onSnapshot } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
+
+  const app = getApp();
+  const db = (window.db) ? window.db : getFirestore(app);
+  const localeId = (window.localeId) ? window.localeId : (document.getElementById("localeLabel")?.dataset?.localeId || "zappydemo");
+
+  function loadCronologia() {
+    const cutoff = new Date();
+    cutoff.setHours(cutoff.getHours() - 24);
+    const q = query(
+      collection(db, "locali", localeId, "ordini"),
+      where("stato", "==", "PAGATO"),
+      orderBy("timestamp", "desc")
+    );
+    onSnapshot(q, (snapshot) => {
+      const list = document.getElementById("cronologia-list");
+      if (!list) return;
+      list.innerHTML = "";
+      if (snapshot.empty) {
+        list.innerHTML = '<p class="muted">Nessun ordine nelle ultime 24 ore</p>';
+        return;
+      }
+      snapshot.forEach((doc) => {
+      const cutoff = new Date();
+      cutoff.setHours(cutoff.getHours() - 24);
+      if (doc.data().timestamp?.toDate && doc.data().timestamp.toDate() < cutoff) return;
+        const d = doc.data();
+        const prods = Array.isArray(d.prodotti) ? d.prodotti : [];
+        const prodotti = prods.map(p => `${p.qty ?? 1}× ${p.nome ?? ''}`).join(", ");
+        const nickname = d.nickname ? ` (${d.nickname})` : "";
+        const time = d.timestamp?.toDate ? d.timestamp.toDate().toLocaleTimeString("it-IT", {hour:"2-digit", minute:"2-digit"}) : "";
+        const total = prods.reduce((sum,p)=> sum + ((p.prezzo ?? 0) * (p.qty ?? 1)), 0).toFixed(2);
+        list.insertAdjacentHTML('beforeend', `
+          <div class="card">
+            <div class="meta">
+              <div class="name">Tavolo ${d.tavolo ?? "-"}${nickname}</div>
+              <div class="muted">${prodotti}</div>
+              <div class="muted">${time}</div>
+            </div>
+            <div class="price">€ ${total}</div>
+          </div>
+        `);
+      });
+    });
+  }
+
+  // Generic view switcher / fallback if not present
+  function _setView(view) {
+    document.querySelectorAll(".view").forEach(v => v.classList.add("hidden"));
+    const el = document.getElementById(`view-${view}`);
+    if (el) el.classList.remove("hidden");
+    document.body.setAttribute("data-view", view);
+    if (view === "cronologia") loadCronologia();
+  }
+  // Expose without overriding existing setView if defined
+  window.setView = window.setView || _setView;
+
+  // Wire sidebar buttons if not already wired
+  document.querySelectorAll('.sidebar .nav-btn[data-view]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const view = btn.getAttribute('data-view');
+      window.setView(view);
+      document.querySelectorAll('.sidebar .nav-btn').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+    }, { once: false });
+  });
+</script>
+
+
+<script type="module">
+  import { collection, query, where, onSnapshot, orderBy } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
+
+  // Example: mark tables with red dot and list NON PAGATO orders
+  function loadTavoli() {
+    const tavoliContainer = document.getElementById("tavoli-list");
+    if (!tavoliContainer) return;
+
+    const q = query(collection(db, "locali", localeId, "ordini"), where("stato","==","NON PAGATO"));
+    onSnapshot(q, (snapshot) => {
+      tavoliContainer.innerHTML = "";
+      const tavoliMap = {};
+      snapshot.forEach(docSnap => {
+        const d = docSnap.data();
+        if (!tavoliMap[d.tavolo]) tavoliMap[d.tavolo] = [];
+        tavoliMap[d.tavolo].push({id:docSnap.id, ...d});
+      });
+      Object.keys(tavoliMap).forEach(t => {
+        const ordini = tavoliMap[t];
+        let html = `<div class="card"><strong>Tavolo ${t} 🔴</strong>`;
+        ordini.forEach(o => {
+          const prodotti = o.prodotti.map(p => `${p.qty}× ${p.nome}`).join(", ");
+          const total = o.prodotti.reduce((s,p)=>s+(p.prezzo*p.qty),0).toFixed(2);
+          html += `<div class="meta"><div class="muted">${prodotti}</div><div class="price">€ ${total}</div><button onclick="pagaOrdine('${o.id}')">Segna come pagato</button></div>`;
+        });
+        html += `<button style="margin-top:10px;" onclick="pagaTavolo(\'${t}\')">Paga tutto tavolo</button>`;
+        html += "</div>";
+        tavoliContainer.insertAdjacentHTML("beforeend", html);
+      });
+      ("beforeend", html);
+      });
+    });
+  }
+
+  // call loadTavoli when view tavoli is opened
+  const _origSetView = window.setView;
+  window.setView = function(view) {
+    _origSetView(view);
+    if (view === "tavoli") loadTavoli();
+  }
+</script>
 
 </body>
 </html>
