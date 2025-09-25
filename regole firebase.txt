@@ -85,14 +85,14 @@ service cloud.firestore {
       allow read: if true;
     }
 
-    // Abilita lettura per sale appbarista
-    match /locali/{locale}/sale/{salaId} {
-      allow read, write: if true;
-     }
-   
-    // Abilita lettura per tavoli appbarista
-     match /locali/{locale}/sale/{salaId}/tavoli/{tavoloId} {
-      allow read, write: if true;
+    // ✅ Lettura completa di sale (compresi tutti i documenti)
+    match /locali/{locale}/sale/{document=**} {
+     allow read, write: if true;
+    }
+
+   // ✅ Lettura tavoli dentro le sale (opzionale, se vuoi tenerla doppia)
+   match /locali/{locale}/sale/{salaId}/tavoli/{tavoloId} {
+     allow read, write: if true;
      }
     }
    }
